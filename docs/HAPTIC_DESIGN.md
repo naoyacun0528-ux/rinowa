@@ -180,18 +180,48 @@ vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.
 
 `I` = intensity(0..1), `S` = sharpness(0..1), `d` = duration(ms), `scale` = primitive scale(0..1)
 
+### 周波数（＝高さ）を上げるレバーは Tier によって違う
+
+| Tier | 周波数を制御できるか | 上げる方法 |
+|---|---|---|
+| T4 Envelope | **できる** | `sharpness` を上げる（0 = 低く鈍い、1 = 高く鋭い） |
+| T3 / T2 Primitive | できない（OS 固定） | より高いプリミティブへ差し替える |
+| T1 / T0 / T-1 | できない | 不可（振幅と長さのみ） |
+
+プリミティブの高さの順序:
+
+```
+TICK  >  CLICK  >  LOW_TICK / THUD
+高い ....................... 低い
+```
+
+`sharpness` はユーザーの強度設定でスケールしない。強さではなく**性格**を担うため。
+
+### 2026-08-15 の調整
+
+実機フィードバック「全体的に低く重い。周波数を上げたい」を受けて、
+**Envelope の sharpness を全体的に引き上げ、プリミティブを CLICK から TICK へ寄せた。**
+
+順序関係は保持している。`destructive` と `error` は意図的に低いまま据え置き、
+他が上がったぶん**むしろ以前より際立つ**。
+
 | トークン | T4 (Envelope) | T3/T2 (Primitive) | T1 (Predefined) | T0 (Waveform) |
 |---|---|---|---|---|
-| `selection` | S0.60; (.25,.60,8)→(0,.60,12) | TICK ×0.30 | `EFFECT_TICK` | 8ms / amp 40 |
-| `navigation` | S0.40; (.35,.40,10)→(0,.35,18) | TICK ×0.50 | `EFFECT_TICK` | 10ms / amp 60 |
-| `softConfirm` | S0.50; (.45,.50,10)→(0,.50,20) | CLICK ×0.35 | `EFFECT_TICK` | 12ms / amp 80 |
-| `send` | S0.85; (.70,.90,6)→(0,.70,22) | CLICK ×0.65 | `EFFECT_CLICK` | 14ms / amp 150 |
-| `threshold` | S0.90; (.90,1.0,5)→(0,.80,16) | CLICK ×0.85 | `EFFECT_CLICK` | 12ms / amp 200 |
-| `reaction` | S0.30; (.50,.45,12)→(.75,.70,10)→(0,.60,24) | QUICK_RISE ×0.40 + CLICK ×0.55 | `EFFECT_CLICK` | 波形 |
-| `success` | S0.50; (.40,.50,10)→(0,.50,12)→(0,.50,50)→(.70,.70,10)→(0,.60,18) | CLICK ×0.45, +60ms CLICK ×0.75 | `EFFECT_DOUBLE_CLICK` | 波形（上昇2連） |
-| `warning` | S0.70; (.75,.70,8)→(0,.60,10)→(0,.60,90)→(.45,.50,10)→(0,.50,16) | CLICK ×0.70, +100ms CLICK ×0.45 | `EFFECT_DOUBLE_CLICK` | 波形（下降2連） |
-| `error` | S0.40; (.80,.40,8)→(0,.35,8)→(0,.35,42)→(.80,.40,8)→(0,.35,8)→(0,.35,42)→(.60,.30,10)→(0,.30,14) | CLICK ×0.85, +50ms CLICK ×0.85, +50ms LOW_TICK ×1.0 | `EFFECT_DOUBLE_CLICK` | 波形（詰まった3連） |
-| `destructive` | S0.15; (.85,.20,18)→(0,.15,45) | **T3:** THUD ×0.90 / **T2:** LOW_TICK ×1.0 + QUICK_FALL ×0.70 | `EFFECT_HEAVY_CLICK` | 35ms / amp 200 |
+| `selection` | S0.72; (.25,.72,8)→(0,.72,12) | TICK ×0.25 | `EFFECT_TICK` | 8ms / amp 40 |
+| `navigation` | S0.58; (.35,.58,10)→(0,.55,18) | TICK ×0.45 | `EFFECT_TICK` | 10ms / amp 60 |
+| `softConfirm` | S0.65; (.45,.65,10)→(0,.65,20) | TICK ×0.55 | `EFFECT_TICK` | 12ms / amp 80 |
+| `send` | S0.90; (.70,.93,6)→(0,.79,22) | TICK ×0.85 | `EFFECT_CLICK` | 14ms / amp 150 |
+| `threshold` | S0.93; (.90,1.0,5)→(0,.86,16) | **CLICK** ×0.75 | `EFFECT_CLICK` | 12ms / amp 200 |
+| `thresholdRelease` | S0.79; (.45,.79,5)→(0,.72,14) | TICK ×0.40 | `EFFECT_TICK` | 10ms / amp 90 |
+| `reaction` | S0.51; (.50,.62,12)→(.75,.79,10)→(0,.72,24) | QUICK_RISE ×0.40 + TICK ×0.65 | `EFFECT_CLICK` | 波形 |
+| `success` | S0.65; (.40,.65,10)→(0,.65,12)→(0,.65,50)→(.70,.79,10)→(0,.72,18) | TICK ×0.50, +60ms TICK ×0.80 | `EFFECT_DOUBLE_CLICK` | 波形（上昇2連） |
+| `warning` | S0.79; (.75,.79,8)→(0,.72,10)→(0,.72,90)→(.45,.65,10)→(0,.65,16) | TICK ×0.75, +100ms TICK ×0.50 | `EFFECT_DOUBLE_CLICK` | 波形（下降2連） |
+| `error` | S0.58; (.80,.58,8)→(0,.55,8)→(0,.55,42)→(.80,.58,8)→(0,.55,8)→(0,.55,42)→(.60,.51,10)→(0,.51,14) | CLICK ×0.80 ×2, +50ms **T3:** LOW_TICK ×1.0 / **T2:** CLICK ×0.55 | `EFFECT_DOUBLE_CLICK` | 波形（詰まった3連） |
+| `destructive` | S0.41; (.85,.44,18)→(0,.41,45) | **T3:** THUD ×0.90 / **T2:** CLICK ×0.90 + QUICK_FALL ×1.0 | `EFFECT_HEAVY_CLICK` | 35ms / amp 200 |
+
+`threshold` だけ CLICK のまま残している。
+唯一「硬く確定した」と感じるべき瞬間であり、
+かつ同じ画面で隣り合う `send` と区別がつく必要があるため。
 
 T-1（API 24-25、振幅制御なし）は duration のみで近似する。
 この階層では表現力がほぼ無いため、**トークンの区別は視覚側で担保する**。

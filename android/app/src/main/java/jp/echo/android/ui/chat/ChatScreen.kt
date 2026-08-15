@@ -116,37 +116,44 @@ fun ChatScreen(
 
     val geometry = rememberPickerGeometry()
 
+    /**
+     * One reaction per person.
+     *
+     * Picking a second replaces the first rather than stacking. Note that "one" means one
+     * of *mine*: other people's reactions on the same message are untouched, so their
+     * counts only lose the vote that was mine.
+     */
     fun applyReaction(messageId: Long, paletteIndex: Int) {
         val index = messages.indexOfFirst { it.id == messageId }
         if (index < 0) return
         val message = messages[index]
-        val existing = message.reactions.firstOrNull { it.paletteIndex == paletteIndex }
-        val updated = when {
-            existing == null ->
-                (message.reactions + Reaction(paletteIndex, 1, mine = true)).toPersistentList()
+        val previous = message.reactions.firstOrNull { it.mine }
 
-            existing.mine && existing.count <= 1 ->
-                message.reactions.filterNot { it.paletteIndex == paletteIndex }.toPersistentList()
+        // Withdraw whatever I had, dropping the chip if nobody else voted for it.
+        var updated = message.reactions.mapNotNull { reaction ->
+            when {
+                !reaction.mine -> reaction
+                reaction.count <= 1 -> null
+                else -> reaction.copy(count = reaction.count - 1, mine = false)
+            }
+        }
 
-            existing.mine ->
-                message.reactions.map {
-                    if (it.paletteIndex == paletteIndex) {
-                        it.copy(count = it.count - 1, mine = false)
-                    } else {
-                        it
-                    }
-                }.toPersistentList()
-
-            else ->
-                message.reactions.map {
+        // Tapping the one I already had is a toggle off; anything else replaces it.
+        if (previous?.paletteIndex != paletteIndex) {
+            updated = if (updated.none { it.paletteIndex == paletteIndex }) {
+                updated + Reaction(paletteIndex, count = 1, mine = true)
+            } else {
+                updated.map {
                     if (it.paletteIndex == paletteIndex) {
                         it.copy(count = it.count + 1, mine = true)
                     } else {
                         it
                     }
-                }.toPersistentList()
+                }
+            }
         }
-        messages[index] = message.copy(reactions = updated)
+
+        messages[index] = message.copy(reactions = updated.toPersistentList())
     }
 
     fun closePicker(committedIndex: Int) {
