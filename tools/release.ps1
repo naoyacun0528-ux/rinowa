@@ -39,7 +39,22 @@ $apk = Join-Path $android 'app\build\outputs\apk\debug\app-debug.apk'
 if (-not (Test-Path $apk)) { throw "APK not found at $apk" }
 $apkOut = Join-Path $outDir "echo-$version-debug.apk"
 Copy-Item $apk $apkOut -Force
-Write-Host "apk    : $apkOut  ($([math]::Round((Get-Item $apkOut).Length / 1MB, 2)) MB)"
+Write-Host "debug  : $apkOut  ($([math]::Round((Get-Item $apkOut).Length / 1MB, 2)) MB)"
+
+# Release build, only when a signing key is configured on this machine. Without it the
+# APK would be unsigned and uninstallable, which is worse than not shipping one.
+if (Test-Path (Join-Path $android 'keystore.properties')) {
+    & (Join-Path $android 'gradlew.bat') -p $android assembleRelease | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease failed ($LASTEXITCODE)" }
+
+    $rel = Join-Path $android 'app\build\outputs\apk\release\app-release.apk'
+    if (-not (Test-Path $rel)) { throw "release APK not found at $rel" }
+    $relOut = Join-Path $outDir "echo-$version-release.apk"
+    Copy-Item $rel $relOut -Force
+    Write-Host "release: $relOut  ($([math]::Round((Get-Item $relOut).Length / 1MB, 2)) MB)"
+} else {
+    Write-Host 'release: skipped (no keystore.properties on this machine)'
+}
 
 # ---- source zip ------------------------------------------------------------
 # Staged into a temp tree first so the archive has no build output, no git history,
@@ -49,12 +64,17 @@ if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 
 $excludeDirs = @('.git', '.gradle', 'build', 'outputs', '.idea', '.cxx')
+
+# Anything matching these must never reach a zip that leaves this machine.
+# Checked again after the archive is built — see the guard below.
+$secretPattern = '(^|\\)(keystore\.properties|local\.properties|google-services\.json)$|\.jks$|\.keystore$'
+
 Get-ChildItem -Path $repo -Recurse -File | Where-Object {
     $relative = $_.FullName.Substring($repo.Length).TrimStart('\')
     $parts = $relative -split '\\'
     $blocked = $false
     foreach ($part in $parts) { if ($excludeDirs -contains $part) { $blocked = $true } }
-    if ($_.Name -eq 'local.properties') { $blocked = $true }
+    if ($relative -match $secretPattern) { $blocked = $true }
     -not $blocked
 } | ForEach-Object {
     $relative = $_.FullName.Substring($repo.Length).TrimStart('\')
@@ -67,7 +87,22 @@ $zipOut = Join-Path $outDir "echo-$version-source.zip"
 if (Test-Path $zipOut) { Remove-Item $zipOut -Force }
 Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zipOut
 Remove-Item $staging -Recurse -Force
-Write-Host "source : $zipOut  ($([math]::Round((Get-Item $zipOut).Length / 1KB, 0)) KB)"
+
+# Fail-safe. The exclusion list above is a filter someone has to remember to update; this
+# inspects the finished archive instead, so a newly added secret cannot slip through
+# unnoticed. A leaked signing password cannot be un-shared, so the archive is destroyed
+# rather than merely reported.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead($zipOut)
+$leaked = $archive.Entries | Where-Object { $_.FullName -match $secretPattern } |
+    Select-Object -ExpandProperty FullName
+$archive.Dispose()
+if ($leaked) {
+    Remove-Item $zipOut -Force
+    throw "secrets found in the source archive, archive destroyed: $($leaked -join ', ')"
+}
+
+Write-Host "source : $zipOut  ($([math]::Round((Get-Item $zipOut).Length / 1KB, 0)) KB)  [secret scan clean]"
 
 Write-Host ''
 Write-Host "done -> $outDir"

@@ -112,6 +112,30 @@ adb logcat -c && adb shell input swipe 150 1083 560 1083 1200 && adb logcat -d |
 Compare `time_to_threshold_ms` against what the geometry predicts. Guessing at gesture bugs
 from a screenshot does not work; the timings say plainly whether it is right.
 
+## Sharing the Pixel with four other agents
+
+One device, five agents. Read
+`C:\Users\yukii\Documents\Codex\2026-07-22\new-chat\shared-context\DEVICE-LOCK.md`
+before any adb command — `gradlew installDebug` counts, it runs adb underneath.
+
+The lock is `shared-context\device-lock.txt`. Absent means free. **Claim it as
+`OWNER=echo`**, not `claude`: several of the five run on Claude, so a lock reading
+`claude` tells nobody whose it is. Release it the moment you stop, and verify the
+delete before saying it is released.
+
+Before injecting taps, screenshot first and confirm Echo is actually on screen. Reusing
+coordinates from an earlier run once landed a tap in the owner's private Instagram
+conversation, because they had picked the phone up in the meantime.
+
+## Signing
+
+The release keystore lives outside the repo at `C:\dev\echo-keys\echo-release.jks`, with
+its password in `android/keystore.properties` (gitignored, never committed). Losing
+either means the app can never be updated again — see [docs/SIGNING.md](docs/SIGNING.md).
+
+`tools/release.ps1` scans the finished source zip for secrets and destroys it if any are
+found. That guard exists because an exclusion list alone already failed once.
+
 ## Current phase
 
 **Prototype 0** — local only, no network, Android only. See [docs/ROADMAP.md](docs/ROADMAP.md).
