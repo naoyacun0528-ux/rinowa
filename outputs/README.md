@@ -1,4 +1,4 @@
-# outputs
+﻿# outputs
 
 ビルドのたびにここへ成果物を出します。バージョンごとにフォルダが増えます。
 
@@ -40,8 +40,8 @@ powershell -File C:\dev\echo\tools\release.ps1
 
 | | applicationId | 用途 |
 |---|---|---|
-| release | `jp.echo.android` | **配布用。** 専用鍵で署名済み。R8 で圧縮され約 1.2MB |
-| debug | `jp.echo.android.debug` | 開発用。ログが出る。約 11.6MB |
+| release | `blog.nextlab.echo` | **配布用。** 専用鍵で署名済み。R8 で圧縮され約 1.2MB |
+| debug | `blog.nextlab.echo.debug` | 開発用。ログが出る。約 11.6MB |
 
 applicationId が違うので**同じ端末に両方入れられます。**
 

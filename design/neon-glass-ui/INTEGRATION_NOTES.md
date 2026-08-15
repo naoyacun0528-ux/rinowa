@@ -1,4 +1,4 @@
-# NEON GLASS UI — Echo への組み込み検討
+﻿# NEON GLASS UI — Echo への組み込み検討
 
 置いてあるもの: `1.4.0/`（NEON INSTINCT 1.4.0 から切り出された11ファイル、約2,700行）
 出どころと使い方は [1.4.0/README.md](1.4.0/README.md) にある。
@@ -95,9 +95,9 @@ Echo の合格条件には「スクロールが指に貼りついて感じられ
 したがって組み込むなら、**先に測ってから決める**。
 
 ```bash
-adb shell dumpsys gfxinfo jp.echo.android.debug reset
+adb shell dumpsys gfxinfo blog.nextlab.echo.debug reset
 # 8秒ほどスクロールする
-adb shell dumpsys gfxinfo jp.echo.android.debug | grep -E "Janky|gpu percentile"
+adb shell dumpsys gfxinfo blog.nextlab.echo.debug | grep -E "Janky|gpu percentile"
 ```
 
 Pixel 10 は 120Hz なので、フレーム予算は 8.3ms。
@@ -217,9 +217,9 @@ Pixel 10、46件のスレッドを約8秒スクロール。**パネルは 120Hz 
 再測定の手順:
 
 ```bash
-adb shell dumpsys gfxinfo jp.echo.android.debug reset
+adb shell dumpsys gfxinfo blog.nextlab.echo.debug reset
 # 46件のスレッドを8秒ほどスクロールする
-adb shell dumpsys gfxinfo jp.echo.android.debug | grep -E "Janky|percentile|Missed"
+adb shell dumpsys gfxinfo blog.nextlab.echo.debug | grep -E "Janky|percentile|Missed"
 ```
 
 **比較対象は上の表。** 50th と 90th が悪化したら戻す。
@@ -230,7 +230,7 @@ adb shell dumpsys gfxinfo jp.echo.android.debug | grep -E "Janky|percentile|Miss
 
 ## 組み込むときの手順（決定後に実行）
 
-1. パッケージ名を `com.neonglass` → `jp.echo.android.glass` へ置換し、ディレクトリを移動
+1. パッケージ名を `com.neonglass` → `blog.nextlab.echo.glass` へ置換し、ディレクトリを移動
 2. `:core:glass` モジュールを作る（`androidx.annotation` のみ依存）
 3. `LiquidBackdropView` を Compose の最背面に `AndroidView` で敷き、`NeonGlassScene.setBaseColor` を渡す
 4. **`NeonGlassTuning.Preset.QUIET` から始める** — README が明示的にメッセンジャー向けに推奨している。
