@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Only used for the pre-Compose window background, so the launch has no white flash.
+         The real palette lives in :core:designsystem (EchoColors.kt). -->
+    <color name="echo_window_background">#FFFBF9F7</color>
+    <color name="ic_launcher_background">#FF17161A</color>
+</resources>

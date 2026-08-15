@@ -1,0 +1,20 @@
+*.iml
+.gradle/
+/local.properties
+android/local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+local.properties
+
+# Firebase config (added in Prototype 1) — never commit
+google-services.json
+GoogleService-Info.plist
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
