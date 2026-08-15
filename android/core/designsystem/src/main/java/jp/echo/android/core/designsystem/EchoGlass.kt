@@ -53,6 +53,36 @@ enum class GlassTone {
     Control,
 }
 
+/**
+ * The look of glass without the press behaviour.
+ *
+ * For surfaces that are glass but should not swell when touched — a text field focuses
+ * rather than responds, and a panel behind other controls has no press of its own.
+ * [GlassSurface] builds on this and adds the reaction.
+ */
+@Composable
+fun Modifier.glassFace(
+    shape: Shape = RoundedCornerShape(EchoDimens.glassCorner),
+    elevation: Dp = 3.dp,
+): Modifier {
+    val colors = EchoTheme.colors
+    return this
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            clip = false,
+            ambientColor = colors.glassShadow,
+            spotColor = colors.glassShadow,
+        )
+        .clip(shape)
+        .background(Brush.verticalGradient(listOf(colors.glassFaceHigh, colors.glassFace)))
+        .border(
+            width = 1.dp,
+            brush = Brush.verticalGradient(listOf(colors.glassEdge, colors.glassEdgeLow)),
+            shape = shape,
+        )
+}
+
 @Composable
 fun GlassSurface(
     modifier: Modifier = Modifier,
@@ -82,24 +112,14 @@ fun GlassSurface(
         label = "glassGlow",
     )
 
-    val face = Brush.verticalGradient(listOf(colors.glassFaceHigh, colors.glassFace))
-    val edge = Brush.verticalGradient(listOf(colors.glassEdge, colors.glassEdgeLow))
-
     Box(
         modifier = modifier
             .graphicsLayer {
                 scaleX = swell
                 scaleY = swell
             }
-            .shadow(
-                elevation = tone.elevation,
-                shape = shape,
-                clip = false,
-                ambientColor = colors.glassShadow,
-                spotColor = colors.glassShadow,
-            )
-            .clip(shape)
-            .background(face)
+            .glassFace(shape, tone.elevation)
+            // After the edge, so the rim lights up along with the face.
             .drawBehind {
                 if (glow <= 0f || pressPoint == Offset.Unspecified) return@drawBehind
                 // Light where the finger is. A uniform brighten would look like a state
@@ -119,7 +139,6 @@ fun GlassSurface(
                     center = pressPoint,
                 )
             }
-            .border(width = 1.dp, brush = edge, shape = shape)
             .then(
                 if (enabled && (onClick != null || onLongClick != null)) {
                     Modifier.pointerInput(onClick, onLongClick) {

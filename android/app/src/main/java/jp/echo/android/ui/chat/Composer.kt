@@ -1,7 +1,9 @@
 package jp.echo.android.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,8 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,15 +48,18 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
 import jp.echo.android.core.designsystem.GlassSurface
 import jp.echo.android.core.designsystem.GlassTone
+import jp.echo.android.core.designsystem.glassFace
 import jp.echo.android.model.Message
 import jp.echo.android.model.previewText
 
@@ -139,9 +149,9 @@ fun Composer(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = EchoDimens.composerMinHeight, max = 140.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(colors.surfaceSunken)
-                    .border(1.dp, colors.outlineSoft, RoundedCornerShape(22.dp))
+                    // Glass, but not a GlassSurface: a field takes focus, it does not
+                    // press. Swelling under the finger would say the wrong thing.
+                    .glassFace(shape = RoundedCornerShape(22.dp), elevation = 2.dp)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
@@ -171,10 +181,12 @@ fun Composer(
 @Composable
 private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
     val colors = EchoTheme.colors
-    val scale by animateFloatAsState(
+    val scope = rememberCoroutineScope()
+
+    val readyScale by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.82f,
         animationSpec = EchoMotion.commitSpring(),
-        label = "sendScale",
+        label = "sendReady",
     )
     val alpha by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.35f,
@@ -182,10 +194,21 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
         label = "sendAlpha",
     )
 
+    var pressed by remember { mutableStateOf(false) }
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 1.09f else 1f,
+        animationSpec = EchoMotion.popSpring(),
+        label = "sendPress",
+    )
+
+    // Fired once on send: a quick inflate, then a spring back. The message leaving and
+    // the button letting go are the same motion.
+    val launchPulse = remember { Animatable(1f) }
+
     Box(
         modifier = Modifier
             .size(EchoDimens.composerMinHeight)
-            .scale(scale)
+            .scale(readyScale * pressScale * launchPulse.value)
             .shadow(3.dp, CircleShape, clip = false, spotColor = colors.glassShadow)
             .clip(CircleShape)
             .background(
@@ -196,8 +219,30 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
                     ),
                 ),
             )
-            .border(1.dp, Brush.verticalGradient(listOf(colors.glassEdge.copy(alpha = 0.45f), Color.Transparent)), CircleShape)
-            .clickable(enabled = enabled, onClick = onClick),
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    listOf(colors.glassEdge.copy(alpha = 0.45f), Color.Transparent),
+                ),
+                shape = CircleShape,
+            )
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        tryAwaitRelease()
+                        pressed = false
+                    },
+                    onTap = {
+                        scope.launch {
+                            launchPulse.animateTo(1.20f, tween(70))
+                            launchPulse.animateTo(1f, EchoMotion.popSpring())
+                        }
+                        onClick()
+                    },
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(22.dp)) {
