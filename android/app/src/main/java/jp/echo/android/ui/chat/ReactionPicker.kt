@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.preferHighFrameRate
 import jp.echo.android.model.ReactionPalette
 import kotlin.math.roundToInt
 
@@ -107,6 +108,8 @@ fun ReactionPickerOverlay(
 
     Box(
         modifier = Modifier
+            // On screen only while the finger is choosing, and animating the whole time.
+            .preferHighFrameRate(true)
             .offset { IntOffset(state.pillLeftPx.roundToInt(), state.pillTopPx.roundToInt()) }
             .height(ReactionPickerMetrics.height)
             .width(ReactionPickerMetrics.width())

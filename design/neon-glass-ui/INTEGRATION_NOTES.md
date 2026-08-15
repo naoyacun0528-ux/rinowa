@@ -173,11 +173,58 @@ API 33 未満では屈折が消えて塗りへ退避する。
 > **撤退条件を先に決めておく: 測定値が悪化したら戻す。**
 > 見た目のために「スクロールが指に貼りついて感じられる」を削らない。
 
+### ベースライン実測値（2026-08-15 / Echo 0.2.0 / ガラス導入前）
+
+Pixel 10、46件のスレッドを約8秒スクロール。**パネルは 120Hz 駆動**
+（`mActiveRenderFrameRate=120.00001`）なので **1フレームの予算は 8.3ms**。
+
+| 指標 | 値 |
+|---|---|
+| 描画フレーム数 | 419 |
+| **Janky frames** | **7（1.67%）** |
+| 50th percentile | **6 ms** |
+| 90th percentile | **11 ms** |
+| 95th percentile | 15 ms |
+| 99th percentile | 31 ms |
+| Missed Vsync | 2 |
+
+**GPU の内訳（0.2.1 の再測定で判明。これが判断を変える）**
+
+| 指標 | 値 |
+|---|---|
+| 50th gpu percentile | **1 ms** |
+| 90th gpu percentile | **2 ms** |
+| 99th gpu percentile | **2 ms** |
+
+**読み取れること:**
+
+- 中央値 6ms は 8.3ms の予算内。通常のフレームは間に合っている
+- 90th が 11〜12ms で予算を超えている。約1割のフレームは落ちている
+- **ただしその遅さは GPU ではない。GPU は 99th でも 2ms しか使っていない。**
+  現在のボトルネックは UI スレッド側であり、**GPU には 6ms 以上の余裕がある**
+
+> **訂正:** 当初「余裕が薄いのでガラスは厳しい」と書いたが、これは総フレーム時間だけを見た
+> 誤った読みだった。NEON INSTINCT の 9ms は GPU 律速の数値であり、Echo の 11ms とは
+> 意味が違う。**ガラスが消費するのは主に GPU 時間であり、そこは空いている。**
+
+したがって「スクロール中のフレームにガラスを乗せない」は、
+**性能上の絶対的な禁止ではなく、最初の一歩を安全側に倒すための方針**として扱う。
+
+とはいえ UI スレッドが既に詰まっている以上、
+スクロール中の面（トップバー / コンポーザー）へ広げる判断は
+**必ず再測定してから**行うこと。順序は変えない。
+
+再測定の手順:
+
 ```bash
 adb shell dumpsys gfxinfo jp.echo.android.debug reset
-# 8秒ほどスレッドをスクロールする
-adb shell dumpsys gfxinfo jp.echo.android.debug | grep -E "Janky|percentile"
+# 46件のスレッドを8秒ほどスクロールする
+adb shell dumpsys gfxinfo jp.echo.android.debug | grep -E "Janky|percentile|Missed"
 ```
+
+**比較対象は上の表。** 50th と 90th が悪化したら戻す。
+
+（`Number High input latency` は adb の合成入力で大きく出るため、この計測では無視してよい。）
 
 ---
 

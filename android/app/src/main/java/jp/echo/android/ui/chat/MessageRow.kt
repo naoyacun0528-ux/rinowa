@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.preferHighFrameRate
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Message
@@ -203,6 +204,9 @@ fun MessageRow(
             Column(
                 horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
                 modifier = Modifier
+                    // Only while this bubble is actually moving. Asking for the panel's
+                    // top rate for a row sitting still would cost battery for nothing.
+                    .preferHighFrameRate(offsetPx != 0f || raised)
                     .offset { IntOffset(offsetPx.roundToInt(), 0) }
                     .scale(raiseScale),
             ) {

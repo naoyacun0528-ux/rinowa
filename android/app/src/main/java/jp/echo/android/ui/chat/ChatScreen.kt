@@ -60,6 +60,7 @@ import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoSwipe
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.preferHighFrameRate
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Conversation
@@ -405,7 +406,9 @@ fun ChatScreen(
                 reverseLayout = true,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    // Top rate while the thread is actually moving, and only then.
+                    .preferHighFrameRate(listState.isScrollInProgress),
                 contentPadding = PaddingValues(
                     horizontal = EchoDimens.screenPadding,
                     vertical = 8.dp,

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import jp.echo.android.core.analytics.AnalyticsEvent
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.preferHighFrameRate
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Conversation
@@ -63,10 +65,13 @@ fun ChatListScreen(
             onOpenHapticLab()
         })
 
+        val listState = rememberLazyListState()
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .preferHighFrameRate(listState.isScrollInProgress),
             contentPadding = PaddingValues(bottom = 12.dp),
         ) {
             items(conversations, key = { it.id }) { conversation ->

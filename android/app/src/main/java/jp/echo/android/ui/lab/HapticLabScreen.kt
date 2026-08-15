@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.rememberRefreshRateInfo
 import jp.echo.android.core.haptics.HapticIntensity
 import jp.echo.android.core.haptics.HapticTier
 import jp.echo.android.core.haptics.HapticToken
@@ -102,6 +103,26 @@ fun HapticLabScreen(onBack: () -> Unit) {
                                 .ifEmpty { "なし" },
                         "既定のTier" to tierLabel(capabilities.bestTier),
                     ),
+                )
+            }
+
+            item { SectionTitle("画面のリフレッシュレート") }
+            item {
+                val refresh = rememberRefreshRateInfo()
+                CapabilityCard(
+                    rows = listOf(
+                        "現在" to "%.1f Hz".format(refresh.currentHz),
+                        "1フレームの予算" to "%.2f ms".format(refresh.frameBudgetMs),
+                        "対応レート" to refresh.supportedHz.joinToString(" / ") { "%.0f".format(it) },
+                        "可変(ARR)" to if (refresh.adaptive) "対応" else "非対応（モード切替のみ）",
+                    ),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "フレーム予算は固定値ではなく、常にこの実測レートから計算しています。" +
+                        "アニメーションは時間基準なので、1Hz でも 144Hz でも速度は変わりません。",
+                    style = type.labelSmall,
+                    color = colors.textTertiary,
                 )
             }
 

@@ -134,6 +134,20 @@ release APK, the debug APK, the source zip, and the release notes. Writing the p
 expecting them to be fetched from disk is not delivery; the owner asked for the files
 themselves, every time.
 
+## Refresh rate
+
+Panels run from 1 Hz to 144 Hz and change rate while the app runs. **Never hardcode a
+rate or a frame budget** — derive it from `EchoRefreshRate.read()`. Never drive anything
+off a frame count; animations must be time-based so 1 Hz does not stall them and 144 Hz
+does not speed them up.
+
+Ask for a high rate only on what is moving, via `Modifier.preferHighFrameRate(active)`.
+Holding the panel high while someone reads a message spends their battery for nothing.
+
+Measured on the Pixel 10 while scrolling: total frame 90th percentile 11–12 ms against an
+8.33 ms budget, but **GPU 99th percentile is only 2 ms**. The bottleneck is the UI thread,
+not the GPU — which matters when judging whether a GPU-heavy effect can be afforded.
+
 ## Signing
 
 The release keystore lives outside the repo at `C:\dev\echo-keys\echo-release.jks`, with
