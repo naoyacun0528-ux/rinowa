@@ -27,7 +27,25 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * A pane of glass that swells and lights up under the finger.
+ * A raised surface that swells and lights up under the finger.
+ *
+ * ## What this is, and what it is not
+ *
+ * **This is not glass.** Glass is translucent: you see what is behind it, softened. This
+ * has none of that. It is an opaque pane, lifted off the page by a shadow, with a lit top
+ * edge and a bloom where a finger touches it. The name is aspirational, kept because the
+ * intent is to grow into the real thing — but nobody should read this file expecting
+ * frosted glass and be confused about why there is no blur.
+ *
+ * It became *less* glass-like in 0.3.2, when translucency had to go: a partly transparent
+ * fill let the elevation shadow's tessellated silhouette read through as an octagon.
+ * Shadow and transparency do not stack.
+ *
+ * Real frosted glass needs the backdrop sampled and blurred behind each pane. On Android
+ * that means API 31's `RenderEffect`, and either re-rendering the background into every
+ * pane or a window-level blur — which costs real GPU time per surface and would need
+ * measuring against the scroll budget before it goes anywhere near a list. That is a
+ * later phase, not a tweak to this file.
  *
  * ## No refraction, on purpose
  *
