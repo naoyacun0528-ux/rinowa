@@ -14,6 +14,8 @@ datastore = "1.2.1"
 immutable = "0.5.1"
 coroutines = "1.11.0"
 junit = "4.13.2"
+googleServices = "4.5.0"
+firebaseBom = "34.17.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -38,7 +40,16 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
+# Firebase. Versions come from the BoM, so none are pinned individually.
+# firebase-analytics is deliberately absent: it collects on its own, and what this app
+# reports is defined by docs/ANALYTICS_SCHEMA.md. It gets added when that schema is
+# wired through it, not before.
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

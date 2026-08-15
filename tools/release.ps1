@@ -41,9 +41,21 @@ $apkOut = Join-Path $outDir "echo-$version-debug.apk"
 Copy-Item $apk $apkOut -Force
 Write-Host "debug  : $apkOut  ($([math]::Round((Get-Item $apkOut).Length / 1MB, 2)) MB)"
 
-# Release build, only when a signing key is configured on this machine. Without it the
-# APK would be unsigned and uninstallable, which is worse than not shipping one.
-if (Test-Path (Join-Path $android 'keystore.properties')) {
+# Release build, only when it can actually succeed. Two things must be in place:
+# a signing key (otherwise the APK is unsigned and uninstallable) and a Firebase
+# registration for the release applicationId (otherwise the Google Services plugin
+# fails the build outright).
+$hasKeystore = Test-Path (Join-Path $android 'keystore.properties')
+$hasReleaseFirebase = (Test-Path (Join-Path $android 'app\src\release\google-services.json')) -or
+                      (Test-Path (Join-Path $android 'app\google-services.json'))
+
+if (-not $hasReleaseFirebase) {
+    Write-Host 'release: skipped -- jp.echo.android is not registered in Firebase yet.'
+    Write-Host '         Add it in the console, download google-services.json again, and'
+    Write-Host '         place it at android/app/google-services.json (it covers both variants).'
+}
+
+if ($hasKeystore -and $hasReleaseFirebase) {
     & (Join-Path $android 'gradlew.bat') -p $android assembleRelease | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease failed ($LASTEXITCODE)" }
 
@@ -52,7 +64,7 @@ if (Test-Path (Join-Path $android 'keystore.properties')) {
     $relOut = Join-Path $outDir "echo-$version-release.apk"
     Copy-Item $rel $relOut -Force
     Write-Host "release: $relOut  ($([math]::Round((Get-Item $relOut).Length / 1MB, 2)) MB)"
-} else {
+} elseif (-not $hasKeystore) {
     Write-Host 'release: skipped (no keystore.properties on this machine)'
 }
 
