@@ -1,63 +1,44 @@
-﻿# Firebase セットアップ — あなたにしかできない作業
-
-Firebase コンソールの操作は**あなたの Google アカウントの権限**が必要なため、
-Claude では実行できません。ここに列挙した5つを済ませてください。所要は10分程度です。
+# Firebase セットアップ
 
 プロジェクト: **`echo-cfe37`**
 
----
-
-## 1. リリース用のアプリを登録する（必須・今すぐ）
-
-現在の `google-services.json` には **`blog.nextlab.echo.debug` しか入っていません。**
-そのため **リリースビルドが失敗します**（実際に失敗を確認済み）。
-
-```
-File google-services.json is missing.
-Searched: app\src\release\google-services.json, app\google-services.json ...
-```
-
-**手順**
-
-1. Firebase コンソール → プロジェクトの設定 → 「アプリを追加」→ Android
-2. パッケージ名に **`blog.nextlab.echo`** を入力（`.debug` なし）
-3. 登録後、`google-services.json` を**ダウンロードし直す**
-   → 2つのアプリが両方入った1つのファイルになります
-4. そのファイルを私に渡してください
+Firebase CLI で自動化できる範囲は自動化しました。**残りは3つだけ**です。
 
 ---
 
-## 2. SHA 指紋を登録する（Google サインインに必須）
+## ✅ 完了（CLI で実施済み）
 
-Google サインインは、アプリの署名を照合します。**登録しないとサインインできません。**
+| 内容 | 詳細 |
+|---|---|
+| Android アプリ登録 ×2 | `blog.nextlab.echo` / `blog.nextlab.echo.debug` |
+| SHA 指紋 ×4 | 各アプリに SHA-1 と SHA-256 |
+| `google-services.json` | `android/app/` に配置（両アプリを1ファイルで網羅） |
+| ビルド確認 | debug / release 両方が通ることを確認済み |
 
-プロジェクトの設定 → 各アプリの「SHA 証明書フィンガープリント」→「フィンガープリントを追加」
+使ったコマンド（記録として）:
 
-### `blog.nextlab.echo.debug`（開発用）
-
-```
-SHA-1    01:96:CF:E1:8D:CC:20:F9:48:CD:C5:C3:51:39:56:20:9A:23:50:23
-SHA-256  81:A8:67:26:6D:4E:23:98:40:04:E0:AA:CE:32:F9:13:7D:5B:20:44:3B:84:52:E4:C1:BC:5D:46:2B:96:58:02
-```
-
-### `blog.nextlab.echo`（配布用）
-
-```
-SHA-1    8E:7B:1B:D2:BA:AF:B9:73:82:CF:8A:1D:A5:D6:36:89:05:3C:56:E7
-SHA-256  53:15:50:1D:D0:83:20:A3:5E:A8:41:B4:EE:48:B7:C5:CB:56:27:E1:BF:FA:67:D4:49:35:91:AD:C4:38:5F:F9
+```bash
+firebase apps:create ANDROID "Echo" --package-name blog.nextlab.echo --project echo-cfe37
+firebase apps:android:sha:create <appId> <sha> --project echo-cfe37
+firebase apps:sdkconfig ANDROID <appId> --project echo-cfe37
 ```
 
-**これらは秘密ではありません。** どの APK からも取り出せる公開情報です。
-秘密は署名鍵そのもの（`echo-release.jks`）で、それは → [SIGNING.md](SIGNING.md)
+### アプリ ID
 
-> **注意:** 開発用の指紋は `~/.android/debug.keystore` のものです。
-> この PC を変えると変わるので、そのときは登録し直しが要ります。
+```
+blog.nextlab.echo        1:321506749950:android:2355fca050d966786764af
+blog.nextlab.echo.debug  1:321506749950:android:6cf4716d2c1d5e706764af
+```
 
 ---
 
-## 3. サインイン方法を有効にする
+## ⬜ 残り3つ（コンソールでの操作が必要）
 
-Authentication → Sign-in method
+CLI では**できません**。理由も併記します。
+
+### 1. サインイン方法を有効にする
+
+Authentication → Sign-in method で次の2つを有効化。
 
 | 有効にするもの | 用途 |
 |---|---|
@@ -65,40 +46,59 @@ Authentication → Sign-in method
 | **メール / パスワード** | Google を使わない人向け |
 
 **メールリンク（パスワードなしログイン）は有効にしないでください。**
-今回採用したのは「メール + パスワード + 確認メール」です。
+採用したのは「メール + パスワード + 確認メール」です。
 
----
+> **なぜ CLI でできないか:** `firebase auth` はユーザーの一括入出力
+> （`auth:export` / `auth:import`）しか持たず、プロバイダの有効化コマンドがありません。
+> ここは Identity Platform 側の設定で、コンソールか別 API の管轄です。
 
-## 4. Firestore を作る
+### 2. Firestore データベースを作る
 
 Firestore Database → データベースの作成
 
-- ロケーション: **`asia-northeast1`（東京）** を推奨。友人が国内なら遅延が最小になります
-- モードは **本番環境モード**（ルールは私が書いて `firebase deploy` で反映します）
+- ロケーション: **`asia-northeast1`（東京）**
+- モード: **本番環境モード**
 
 > **テストモードを選ばないでください。** 30日間「誰でも全データ読み書き可能」になります。
-> [PRIVACY_PRINCIPLES.md](PRIVACY_PRINCIPLES.md) と真正面から衝突します。
+> [PRIVACY_PRINCIPLES.md](PRIVACY_PRINCIPLES.md) と正面から衝突します。
+> ルールは私が書いて `firebase deploy` で反映します。
 
-## 5. Cloud Storage を作る
+> **なぜ CLI でできないか:** `firestore:databases:create` は存在しますが、
+> プロジェクトで **Cloud Firestore API がまだ有効化されていない**ため 403 で止まります。
+> ```
+> Cloud Firestore API has not been used in project echo-cfe37 before or it is disabled.
+> ```
+> コンソールで作成すると API 有効化も同時に行われるので、そちらが一手で済みます。
+
+**ロケーションは後から変更できません。** 東京以外にする理由が無ければ `asia-northeast1` で。
+
+### 3. Cloud Storage を作る
 
 Storage → 開始
 
 - ロケーションは Firestore と揃える
-- こちらも**本番環境モード**
+- **本番環境モード**
 
 スタンプの Master Asset 置き場になります → [STICKER_ARCHITECTURE.md](STICKER_ARCHITECTURE.md)
 
+> **なぜ CLI でできないか:** バケットの新規作成コマンドが Firebase CLI にありません
+> （`firebase init storage` はルールの設定のみ）。
+
 ---
 
-## Claude 側でやること（あなたの作業不要）
+## この先、私が CLI でやること
 
-- Security Rules の作成と `firebase deploy --only firestore:rules,storage` での反映
-- 認証画面と、確認メールが済むまで先へ進ませない制御
-- アカウントのデータモデルと復元処理
-- App Check（Prototype 2 で）
+2と3が済めば、以降はコマンドで進められます。
 
-`firebase login` は**あなたのアカウントでの認証**なので、
-デプロイが必要になった時点で、あなたに実行をお願いします。
+```bash
+firebase deploy --only firestore:rules,storage --project echo-cfe37
+```
+
+- Security Rules の作成と反映
+- Firestore インデックスの定義
+- App Check（Prototype 2）
+
+`firebase login` は**すでに済んでいます**（naoyacun0528@gmail.com）。
 **私がパスワードや認証情報を扱うことはありません。**
 
 ---
@@ -107,7 +107,7 @@ Storage → 開始
 
 **認証方式: Google サインイン + メール（確認メール付き）+ パスワードの2本立て。**
 
-理由は [SYNC_AND_BACKUP.md](SYNC_AND_BACKUP.md) の原則。
+根拠は [SYNC_AND_BACKUP.md](SYNC_AND_BACKUP.md) の原則。
 
 > **Device can be replaced. Account persists.**
 
@@ -116,3 +116,13 @@ Storage → 開始
 **確認メールを必須にする理由:** 未確認のメールアドレスは、他人のアドレスで登録できてしまいます。
 パスワード再設定はそのアドレスに届くため、確認しないまま進むと
 **アカウントの持ち主が確定しません。**
+
+---
+
+## 秘密の扱い
+
+`google-services.json` は gitignore 済みで、履歴にも入っていません。
+
+中の `api_key` は**秘密ではありません** — どの APK からも取り出せる公開値で、
+Firebase の保護は API キーではなく **Security Rules と App Check** で行います。
+それでも不用意に配らないよう、リポジトリとソース zip の両方から除外しています。
