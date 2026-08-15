@@ -16,7 +16,15 @@ class AnalyticsSchemaTest {
         AnalyticsEvent.AppOpened(coldStart = true, startupMs = 412),
         AnalyticsEvent.AppBackgrounded(foregroundMs = 90_000),
         AnalyticsEvent.ActivePeriodEnded(30_000, 90_000, 42, ScreenId.Chat),
-        AnalyticsEvent.MessageSent(24, ConversationType.Direct, false, AttachmentType.None, 130, true),
+        AnalyticsEvent.MessageSent(
+            24, MessageContentKind.Text, ConversationType.Direct, false, AttachmentType.None, 130, true,
+        ),
+        AnalyticsEvent.MessageSent(
+            0, MessageContentKind.Sticker, ConversationType.Group, true, AttachmentType.None, 90, true,
+        ),
+        AnalyticsEvent.StickerSent(StickerKind.BuiltIn, ConversationType.Direct, false),
+        AnalyticsEvent.StickerPickerOpened,
+        AnalyticsEvent.StickerPickerDismissed(2_400, 12, sentSticker = true),
         AnalyticsEvent.MessageSendFailed(SendFailureReason.Network, 2),
         AnalyticsEvent.MessageReceived(ConversationType.Group, AttachmentType.Image),
         AnalyticsEvent.ReactionAdded(3, ConversationType.Direct),
@@ -77,6 +85,24 @@ class AnalyticsSchemaTest {
                         snakeCase.matches(value.value.wireName),
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * The structural guarantee is that [AnalyticsValue] has no text case, so no id can be
+     * expressed at all. This checks the softer thing types cannot: that no parameter is
+     * even *named* like an identifier, which is how such a field would first appear.
+     */
+    @Test
+    fun `no event reports an identifier`() {
+        val banned = listOf("sticker_id", "message_id", "conversation_id", "user_id", "pack_id")
+        allEvents.forEach { event ->
+            event.parameters().keys.forEach { key ->
+                assertTrue(
+                    "'${event.name}' reports identifier-like parameter '$key'",
+                    key !in banned,
+                )
             }
         }
     }

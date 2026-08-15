@@ -14,7 +14,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
-            EchoApp(haptics = app.haptics, analytics = app.analytics)
+            EchoApp(
+                haptics = app.haptics,
+                analytics = app.analytics,
+                stickers = app.stickers,
+            )
         }
     }
 

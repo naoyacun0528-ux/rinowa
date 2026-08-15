@@ -9,6 +9,7 @@ import jp.echo.android.core.analytics.NoOpAnalytics
 import jp.echo.android.core.haptics.AndroidHaptics
 import jp.echo.android.core.haptics.EchoHaptics
 import jp.echo.android.core.haptics.HapticTier
+import jp.echo.android.data.LocalStickerStore
 
 class EchoApplication : Application() {
 
@@ -18,10 +19,19 @@ class EchoApplication : Application() {
     lateinit var analytics: Analytics
         private set
 
+    lateinit var stickers: LocalStickerStore
+        private set
+
     override fun onCreate() {
         super.onCreate()
 
         haptics = AndroidHaptics(this)
+
+        // Materialising the bundled pack is a handful of small files and is done up front
+        // so the first sticker never renders as a placeholder. If the pack grows enough
+        // to be felt at startup, move it off the main thread rather than making the
+        // store nullable.
+        stickers = LocalStickerStore(this).apply { installBuiltIns() }
 
         // Prototype 0 sends nothing anywhere. Debug builds print events to logcat so the
         // schema can be watched while using the app; release builds drop them entirely.

@@ -31,17 +31,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
 import jp.echo.android.model.Message
+import jp.echo.android.model.previewText
 
 @Composable
 fun Composer(
@@ -51,6 +57,8 @@ fun Composer(
     onCancelReply: () -> Unit,
     onSend: () -> Unit,
     onAttachmentClick: () -> Unit,
+    stickerPickerOpen: Boolean,
+    onToggleStickerPicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = EchoTheme.colors
@@ -94,7 +102,34 @@ fun Composer(
                 drawPath(path, tint, style = stroke)
             }
 
-            Spacer(Modifier.width(8.dp))
+            IconCircleButton(
+                onClick = onToggleStickerPicker,
+                contentDescription = if (stickerPickerOpen) "スタンプを閉じる" else "スタンプ",
+                tint = if (stickerPickerOpen) colors.accent else colors.textSecondary,
+            ) { stroke, tint ->
+                val w = size.width
+                val h = size.height
+                // A sticker: a rounded square with a face, and one corner peeled back.
+                val body = Path().apply {
+                    moveTo(w * 0.22f, h * 0.30f)
+                    lineTo(w * 0.22f, h * 0.70f)
+                    lineTo(w * 0.55f, h * 0.78f)
+                    lineTo(w * 0.78f, h * 0.55f)
+                    lineTo(w * 0.78f, h * 0.30f)
+                    close()
+                }
+                drawPath(body, tint, style = stroke)
+                val peel = Path().apply {
+                    moveTo(w * 0.55f, h * 0.78f)
+                    lineTo(w * 0.58f, h * 0.56f)
+                    lineTo(w * 0.78f, h * 0.55f)
+                }
+                drawPath(peel, tint, style = stroke)
+                drawCircle(tint, radius = w * 0.035f, center = Offset(w * 0.38f, h * 0.45f))
+                drawCircle(tint, radius = w * 0.035f, center = Offset(w * 0.60f, h * 0.45f))
+            }
+
+            Spacer(Modifier.width(4.dp))
 
             Box(
                 modifier = Modifier
@@ -204,7 +239,7 @@ private fun ReplyBanner(replyingTo: Message?, onCancel: () -> Unit) {
                 maxLines = 1,
             )
             Text(
-                text = message.text.value,
+                text = message.content.previewText().value,
                 style = type.quotedBody,
                 color = colors.textSecondary,
                 maxLines = 1,
@@ -235,24 +270,26 @@ private fun ReplyBanner(replyingTo: Message?, onCancel: () -> Unit) {
 private fun IconCircleButton(
     onClick: () -> Unit,
     contentDescription: String,
-    draw: androidx.compose.ui.graphics.drawscope.DrawScope.(
-        stroke: Stroke,
-        tint: androidx.compose.ui.graphics.Color,
-    ) -> Unit,
+    tint: Color? = null,
+    draw: DrawScope.(stroke: Stroke, tint: Color) -> Unit,
 ) {
     val colors = EchoTheme.colors
+    val resolvedTint = tint ?: colors.textSecondary
+    val description = contentDescription
+
     Box(
         modifier = Modifier
             .size(EchoDimens.composerMinHeight)
             .defaultMinSize(EchoDimens.touchTarget, EchoDimens.touchTarget)
             .clip(CircleShape)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .semantics { this.contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(22.dp)) {
             draw(
                 Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-                colors.textSecondary,
+                resolvedTint,
             )
         }
     }

@@ -1,8 +1,10 @@
 package jp.echo.android.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -51,19 +54,26 @@ import androidx.compose.ui.unit.dp
 import jp.echo.android.core.analytics.AnalyticsEvent
 import jp.echo.android.core.analytics.AttachmentType
 import jp.echo.android.core.analytics.ConversationType
+import jp.echo.android.core.analytics.MessageContentKind
+import jp.echo.android.core.analytics.StickerKind
 import jp.echo.android.core.designsystem.EchoDimens
+import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoSwipe
 import jp.echo.android.core.designsystem.EchoTheme
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Conversation
 import jp.echo.android.model.Message
+import jp.echo.android.model.MessageContent
 import jp.echo.android.model.MessageStatus
 import jp.echo.android.model.MessageText
 import jp.echo.android.model.Reaction
 import jp.echo.android.model.ReplyPreview
 import jp.echo.android.model.SampleData
+import jp.echo.android.model.StickerId
+import jp.echo.android.model.previewText
 import jp.echo.android.ui.LocalAnalytics
+import jp.echo.android.ui.LocalStickers
 import jp.echo.android.ui.common.Avatar
 import jp.echo.android.ui.common.formatDaySeparator
 import jp.echo.android.ui.common.isSameDay
@@ -93,6 +103,11 @@ fun ChatScreen(
     }
     var composerText by remember(conversation.id) { mutableStateOf("") }
     var replyingTo by remember(conversation.id) { mutableStateOf<Message?>(null) }
+
+    val stickerStore = LocalStickers.current
+    var stickerPanelOpen by remember(conversation.id) { mutableStateOf(false) }
+    var stickerPanelOpenedAt by remember { mutableLongStateOf(0L) }
+    var stickerBrowsedIndex by remember { mutableIntStateOf(0) }
 
     val listState = rememberLazyListState()
     val conversationType =
@@ -256,41 +271,25 @@ fun ChatScreen(
         }
     }
 
-    fun sendMessage() {
-        val body = composerText.trim()
-        if (body.isEmpty()) return
-
+    /** Appends an outgoing message and reports it. @return whether it was a reply. */
+    fun appendOutgoing(content: MessageContent): Boolean {
         // Fired on press, on the same frame the bubble starts moving.
         haptics.perform(HapticToken.Send)
 
         val message = Message(
             id = nextId++,
-            text = MessageText(body),
+            content = content,
             timestampMs = System.currentTimeMillis(),
             isOutgoing = true,
             senderName = "自分",
             status = MessageStatus.Sending,
-            replyTo = replyingTo?.let { ReplyPreview(it.id, it.senderName, it.text) },
+            replyTo = replyingTo?.let {
+                ReplyPreview(it.id, it.senderName, it.content.previewText())
+            },
             reactions = persistentListOf(),
         )
         val wasReply = replyingTo != null
         messages.add(message)
-
-        analytics.log(
-            AnalyticsEvent.MessageSent(
-                // Only the length reaches analytics. The body cannot: this API has no
-                // parameter that accepts text.
-                characterCount = body.length,
-                conversationType = conversationType,
-                isReply = wasReply,
-                attachmentType = AttachmentType.None,
-                deliveryLatencyMs = 0,
-                sendSuccess = true,
-            ),
-        )
-        if (wasReply) analytics.log(AnalyticsEvent.ReplySent(conversationType))
-
-        composerText = ""
         replyingTo = null
 
         scope.launch { listState.animateScrollToItem(0) }
@@ -305,6 +304,81 @@ fun ChatScreen(
             messages.indexOfFirst { it.id == message.id }
                 .takeIf { it >= 0 }
                 ?.let { messages[it] = messages[it].copy(status = MessageStatus.Delivered) }
+        }
+        return wasReply
+    }
+
+    fun sendMessage() {
+        val body = composerText.trim()
+        if (body.isEmpty()) return
+
+        val wasReply = appendOutgoing(MessageContent.Text(MessageText(body)))
+
+        analytics.log(
+            AnalyticsEvent.MessageSent(
+                // Only the length reaches analytics. The body cannot: this API has no
+                // parameter that accepts text.
+                characterCount = body.length,
+                contentKind = MessageContentKind.Text,
+                conversationType = conversationType,
+                isReply = wasReply,
+                attachmentType = AttachmentType.None,
+                deliveryLatencyMs = 0,
+                sendSuccess = true,
+            ),
+        )
+        if (wasReply) analytics.log(AnalyticsEvent.ReplySent(conversationType))
+
+        composerText = ""
+    }
+
+    fun sendSticker(stickerId: StickerId) {
+        // The message carries the id only. See docs/STICKER_ARCHITECTURE.md.
+        val wasReply = appendOutgoing(MessageContent.Sticker(stickerId))
+
+        analytics.log(
+            AnalyticsEvent.MessageSent(
+                characterCount = 0,
+                contentKind = MessageContentKind.Sticker,
+                conversationType = conversationType,
+                isReply = wasReply,
+                attachmentType = AttachmentType.None,
+                deliveryLatencyMs = 0,
+                sendSuccess = true,
+            ),
+        )
+        // Kind only — never the sticker's id.
+        analytics.log(
+            AnalyticsEvent.StickerSent(StickerKind.BuiltIn, conversationType, wasReply),
+        )
+        if (wasReply) analytics.log(AnalyticsEvent.ReplySent(conversationType))
+
+        analytics.log(
+            AnalyticsEvent.StickerPickerDismissed(
+                openMs = System.currentTimeMillis() - stickerPanelOpenedAt,
+                browsedCount = stickerBrowsedIndex,
+                sentSticker = true,
+            ),
+        )
+        stickerPanelOpen = false
+    }
+
+    fun toggleStickerPanel() {
+        haptics.perform(HapticToken.SoftConfirm)
+        if (stickerPanelOpen) {
+            analytics.log(
+                AnalyticsEvent.StickerPickerDismissed(
+                    openMs = System.currentTimeMillis() - stickerPanelOpenedAt,
+                    browsedCount = stickerBrowsedIndex,
+                    sentSticker = false,
+                ),
+            )
+            stickerPanelOpen = false
+        } else {
+            stickerPanelOpen = true
+            stickerPanelOpenedAt = System.currentTimeMillis()
+            stickerBrowsedIndex = 0
+            analytics.log(AnalyticsEvent.StickerPickerOpened)
         }
     }
 
@@ -380,23 +454,40 @@ fun ChatScreen(
                 }
             }
 
-            Composer(
-                text = composerText,
-                onTextChange = { composerText = it },
-                replyingTo = replyingTo,
-                onCancelReply = {
-                    haptics.perform(HapticToken.SoftConfirm)
-                    replyingTo = null
-                },
-                onSend = { sendMessage() },
-                onAttachmentClick = {
-                    haptics.perform(HapticToken.SoftConfirm)
-                    analytics.log(AnalyticsEvent.AttachmentPickerOpened)
-                },
-                modifier = Modifier
+            Column(
+                Modifier
                     .navigationBarsPadding()
                     .imePadding(),
-            )
+            ) {
+                Composer(
+                    text = composerText,
+                    onTextChange = { composerText = it },
+                    replyingTo = replyingTo,
+                    onCancelReply = {
+                        haptics.perform(HapticToken.SoftConfirm)
+                        replyingTo = null
+                    },
+                    onSend = { sendMessage() },
+                    onAttachmentClick = {
+                        haptics.perform(HapticToken.SoftConfirm)
+                        analytics.log(AnalyticsEvent.AttachmentPickerOpened)
+                    },
+                    stickerPickerOpen = stickerPanelOpen,
+                    onToggleStickerPicker = { toggleStickerPanel() },
+                )
+
+                AnimatedVisibility(
+                    visible = stickerPanelOpen,
+                    enter = expandVertically(animationSpec = EchoMotion.settleSpring()),
+                    exit = shrinkVertically(animationSpec = EchoMotion.settleSpring()),
+                ) {
+                    StickerPanel(
+                        store = stickerStore,
+                        onSelect = { id -> sendSticker(id) },
+                        onBrowsed = { index -> stickerBrowsedIndex = maxOf(stickerBrowsedIndex, index) },
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(

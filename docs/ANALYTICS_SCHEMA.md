@@ -124,7 +124,8 @@ foreground
 
 | イベント | パラメータ | 型 | 目的 | risk |
 |---|---|---|---|---|
-| `message_sent` | `character_count` | Int | 平均メッセージ長 → 入力 UI 設計 | LOW |
+| `message_sent` | `character_count` | Int | 平均メッセージ長 → 入力 UI 設計（スタンプ時は 0） | LOW |
+| | `content_kind` | enum(`TEXT`/`STICKER`) | 文字とスタンプの比率 | NONE |
 | | `conversation_type` | enum(`DIRECT`/`GROUP`) | DM / グループ比率 | NONE |
 | | `is_reply` | Boolean | 返信機能の利用率 | NONE |
 | | `attachment_type` | enum(`NONE`/`IMAGE`/`VIDEO`/`FILE`) | 添付の利用率 | NONE |
@@ -137,6 +138,26 @@ foreground
 | `reaction_added` | `palette_index` | Int | **どの絵文字が使われるか（index のみ）** | LOW |
 | | `conversation_type` | enum | | NONE |
 | `reply_sent` | `conversation_type` | enum | 返信の利用率 | NONE |
+| `sticker_sent` | `sticker_kind` | enum(`BUILT_IN`/`CUSTOM`/`GROUP`) | 自作スタンプがどれだけ使われるか | LOW |
+| | `conversation_type` | enum | | NONE |
+| | `is_reply` | Boolean | | NONE |
+| `sticker_picker_opened` | — | — | 分母 | NONE |
+| `sticker_picker_dismissed` | `open_ms` | Long | 探している時間 | NONE |
+| | `browsed_count` | Int | どこまでスクロールしたか（並び順設計の材料） | NONE |
+| | `sent_sticker` | Boolean | **開いたのに送らなかった率** | NONE |
+
+> ### `sticker_id` を送ってはいけない
+>
+> カスタムスタンプの ID は、**そのユーザーが自分で作った固有の資産**を指す。
+> 送れば「誰が何を作り、いつ誰に送ったか」が計測系から復元できてしまう。
+>
+> ```
+> sticker_sent { sticker_kind: BUILT_IN }        ✅
+> sticker_sent { sticker_id: "st_7f3a..." }      ❌
+> ```
+>
+> `pack_id` も送らない。グループ限定パックの ID は所属関係を示すため。
+> → [STICKER_ARCHITECTURE.md](STICKER_ARCHITECTURE.md)
 
 > `character_count` が LOW リスクである理由:
 > 単体では無害だが、極端に長い値は他情報と組み合わせて特徴になりうる。

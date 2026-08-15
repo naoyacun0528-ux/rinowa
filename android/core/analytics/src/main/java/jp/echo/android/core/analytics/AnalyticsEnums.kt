@@ -33,6 +33,25 @@ enum class SendFailureReason(override val wireName: String) : AnalyticsEnum {
     Unknown("unknown"),
 }
 
+enum class MessageContentKind(override val wireName: String) : AnalyticsEnum {
+    Text("text"),
+    Sticker("sticker"),
+}
+
+/**
+ * What sort of sticker was used.
+ *
+ * Note what is deliberately absent: there is no parameter anywhere that carries a
+ * sticker id. A custom sticker's id points at an asset one person made, so reporting it
+ * would let the analytics pipeline reconstruct who created what and sent it to whom.
+ * Kind and counts are enough to improve the feature.
+ */
+enum class StickerKind(override val wireName: String) : AnalyticsEnum {
+    BuiltIn("built_in"),
+    Custom("custom"),
+    Group("group"),
+}
+
 enum class ScreenId(override val wireName: String) : AnalyticsEnum {
     ChatList("chat_list"),
     Chat("chat"),

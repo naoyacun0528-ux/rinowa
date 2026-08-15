@@ -23,6 +23,7 @@ import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
 import jp.echo.android.core.haptics.EchoHaptics
 import jp.echo.android.core.haptics.LocalEchoHaptics
+import jp.echo.android.data.LocalStickerStore
 import jp.echo.android.model.Conversation
 import jp.echo.android.ui.chat.ChatScreen
 import jp.echo.android.ui.chatlist.ChatListScreen
@@ -35,11 +36,16 @@ private sealed interface Screen {
 }
 
 @Composable
-fun EchoApp(haptics: EchoHaptics, analytics: Analytics) {
+fun EchoApp(
+    haptics: EchoHaptics,
+    analytics: Analytics,
+    stickers: LocalStickerStore,
+) {
     EchoTheme {
         CompositionLocalProvider(
             LocalEchoHaptics provides haptics,
             LocalAnalytics provides analytics,
+            LocalStickers provides stickers,
         ) {
             val colors = EchoTheme.colors
             var screen by remember { mutableStateOf<Screen>(Screen.ChatList) }

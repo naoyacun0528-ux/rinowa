@@ -24,6 +24,10 @@
 - [x] Reactions（リアクションピッカー）
 - [x] Basic animations / スクロール挙動
 - [x] Light / Dark（**ライト先行、ダーク対応**）
+- [x] **Sticker ID / Asset モデルの抽象化**（メッセージに画像を埋め込まない形を確立）
+- [x] Local Sticker Store（`filesDir`、HIT/MISS）
+- [x] 組み込みサンプルスタンプ / Sticker ボタン / Sticker picker / 送信と描画
+- [ ] Custom Sticker Composer — **UX の初期検討のみ。実装は P1**
 
 **実装範囲は埋まった。ただしこれは完了条件ではない。**
 
@@ -71,18 +75,32 @@ Firebase Cloud Messaging / Crashlytics / Analytics / App Check
 
 ### 実装範囲
 
-- Account / Profile
-- Direct message
-- Group
-- Read state
-- Image send
-- Push notification
-- Basic presence
-- Feedback（投稿・一覧）
-- Feature voting
-- Analytics（[ANALYTICS_SCHEMA.md](ANALYTICS_SCHEMA.md) に従う）
+優先順:
+
+1. Authentication
+2. Account データモデル
+3. 実メッセージング（Direct / Group / Read state）
+4. **Sticker Master Asset**（Cloud Storage）
+5. **Local Sticker Store の MISS 経路を実接続**
+6. **ID ベースのスタンプメッセージ**
+7. **再インストール／ログイン後の復元** → [SYNC_AND_BACKUP.md](SYNC_AND_BACKUP.md)
+8. Analytics（[ANALYTICS_SCHEMA.md](ANALYTICS_SCHEMA.md) に従う）
+9. Feedback / Feature voting
+
+あわせて:
+
+- **Custom Sticker Composer**（写真 → クロップ → 背景除去 → 文字 → 保存。**すべて端末内**）
+- Profile / Image send / Push notification / Basic presence
 - Privacy → Analytics Data 画面
+- **Account & Cloud 画面**（何を預かっているかを見せる）
 - Developer Console（集計のみ。**本文表示なし**）
+
+### この段階で守ること
+
+- **元写真をアップロードしない。** 完成したスタンプだけを送る
+- **同じスタンプを送るたびに画像を上げない。** Master Asset は1つ
+- **表示のたびにダウンロードしない。** 一度取得したら端末に持つ
+- **「Firebase にあるから使う」で採用しない。** 無いと何ができないかを言えるものだけ使う
 
 ### この段階の必須確認
 
@@ -92,6 +110,24 @@ Firebase Cloud Messaging / Crashlytics / Analytics / App Check
 - Analytics のイベントに `String` パラメータが1つもないこと
 
 ---
+
+## NEON GLASS UI の組み込み（時期未定・独立）
+
+開発者本人が作った独自デザイン言語 NEON GLASS UI 1.4.0 を
+`design/neon-glass-ui/` へ保管済み。**未実装。**
+
+バックエンド作業とは独立しているため、Prototype 1 の前でも後でも着手できる。
+ただし着手前に4つの論点を決める必要がある。
+
+1. **ライト先行という決定と、ネオンガラスは噛み合うか**（最大の論点）
+2. View ベースと Compose の接続（**メッセージバブルには使えない**）
+3. minSdk 24 と要求 29 の不一致
+4. GPU 予算（NEON INSTINCT で中央値 9ms。120Hz の予算は 8.3ms）
+
+詳細と判断材料 → [design/neon-glass-ui/INTEGRATION_NOTES.md](../design/neon-glass-ui/INTEGRATION_NOTES.md)
+
+**4 は特に重要。** 「スクロールが指に貼りついて感じられる」は Prototype 0 の合格条件であり、
+見た目のためにそこを削るのは製品の前提と矛盾する。**入れる前と後で測ってから決める。**
 
 ## Prototype 2 — 運用に耐える形へ
 
@@ -108,6 +144,11 @@ Firebase Cloud Messaging / Crashlytics / Analytics / App Check
 - App Check hardening
 - Abuse protection
 - Monitoring
+- **グループ限定 Sticker Pack**（Pack manifest による差分取得）
+- **不適切なスタンプの報告と削除**（誰が判断し、どう実行するか）
+- **重複排除の検討**（privacy / ownership / deletion / reference counting を解いてから）
+- **運営側バックアップ**（scheduled backup、**復元手順を一度実際に試す**）
+- **Cloud data retention の決定**（退会後どれだけ保持するか）
 
 ---
 

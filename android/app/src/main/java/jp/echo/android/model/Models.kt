@@ -21,6 +21,29 @@ value class MessageText(val value: String) {
     override fun toString(): String = "MessageText(len=$length)"
 }
 
+/**
+ * What a message carries.
+ *
+ * Sticker messages hold an id, never image bytes — see docs/STICKER_ARCHITECTURE.md.
+ * Keeping this a sealed type means adding images or audio later cannot quietly turn into
+ * "just put the bytes in the message" either.
+ */
+@Immutable
+sealed interface MessageContent {
+
+    @Immutable
+    data class Text(val body: MessageText) : MessageContent
+
+    @Immutable
+    data class Sticker(val stickerId: StickerId) : MessageContent
+}
+
+/** Short stand-in used by conversation lists and reply quotes. */
+fun MessageContent.previewText(): MessageText = when (this) {
+    is MessageContent.Text -> body
+    is MessageContent.Sticker -> MessageText("スタンプ")
+}
+
 enum class MessageStatus { Sending, Sent, Delivered, Read, Failed }
 
 @Immutable
@@ -51,14 +74,16 @@ data class ReplyPreview(
 @Immutable
 data class Message(
     val id: Long,
-    val text: MessageText,
+    val content: MessageContent,
     val timestampMs: Long,
     val isOutgoing: Boolean,
     val senderName: String,
     val status: MessageStatus = MessageStatus.Read,
     val replyTo: ReplyPreview? = null,
     val reactions: ImmutableList<Reaction> = persistentListOf(),
-)
+) {
+    val isSticker: Boolean get() = content is MessageContent.Sticker
+}
 
 @Immutable
 data class Conversation(

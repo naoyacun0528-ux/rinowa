@@ -59,6 +59,7 @@ sealed class AnalyticsEvent {
 
     data class MessageSent(
         val characterCount: Int,
+        val contentKind: MessageContentKind,
         val conversationType: ConversationType,
         val isReply: Boolean,
         val attachmentType: AttachmentType,
@@ -68,11 +69,45 @@ sealed class AnalyticsEvent {
         override val name = "message_sent"
         override fun parameters() = mapOf(
             "character_count" to bucketCharacterCount(characterCount).param(),
+            "content_kind" to contentKind.param(),
             "conversation_type" to conversationType.param(),
             "is_reply" to isReply.param(),
             "attachment_type" to attachmentType.param(),
             "delivery_latency_ms" to deliveryLatencyMs.param(),
             "send_success" to sendSuccess.param(),
+        )
+    }
+
+    /** Kind only. The sticker's id is never reported — see [StickerKind]. */
+    data class StickerSent(
+        val stickerKind: StickerKind,
+        val conversationType: ConversationType,
+        val isReply: Boolean,
+    ) : AnalyticsEvent() {
+        override val name = "sticker_sent"
+        override fun parameters() = mapOf(
+            "sticker_kind" to stickerKind.param(),
+            "conversation_type" to conversationType.param(),
+            "is_reply" to isReply.param(),
+        )
+    }
+
+    data object StickerPickerOpened : AnalyticsEvent() {
+        override val name = "sticker_picker_opened"
+        override fun parameters() = emptyMap<String, AnalyticsValue>()
+    }
+
+    /** @param browsedCount how many stickers were scrolled past before choosing or leaving. */
+    data class StickerPickerDismissed(
+        val openMs: Long,
+        val browsedCount: Int,
+        val sentSticker: Boolean,
+    ) : AnalyticsEvent() {
+        override val name = "sticker_picker_dismissed"
+        override fun parameters() = mapOf(
+            "open_ms" to openMs.param(),
+            "browsed_count" to browsedCount.param(),
+            "sent_sticker" to sentSticker.param(),
         )
     }
 

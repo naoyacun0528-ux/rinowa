@@ -54,7 +54,11 @@ import jp.echo.android.core.designsystem.EchoTheme
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Message
+import jp.echo.android.model.MessageContent
 import jp.echo.android.model.MessageStatus
+import jp.echo.android.model.StickerId
+import jp.echo.android.model.previewText
+import jp.echo.android.ui.LocalStickers
 import jp.echo.android.ui.common.formatClock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -202,15 +206,25 @@ fun MessageRow(
                     .offset { IntOffset(offsetPx.roundToInt(), 0) }
                     .scale(raiseScale),
             ) {
-                Box(
-                    modifier = Modifier
-                        .widthIn(max = maxWidth)
-                        .clip(bubbleShape(message.isOutgoing, isFirstOfGroup, isLastOfGroup))
-                        .background(
-                            if (message.isOutgoing) colors.bubbleOutgoing else colors.bubbleIncoming,
-                        ),
-                ) {
-                    BubbleContent(message)
+                // A sticker gets no bubble. Wrapping it in one would read as a picture
+                // that was sent, rather than as the expression itself.
+                if (message.content is MessageContent.Sticker) {
+                    StickerMessage(message, message.content.stickerId)
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = maxWidth)
+                            .clip(bubbleShape(message.isOutgoing, isFirstOfGroup, isLastOfGroup))
+                            .background(
+                                if (message.isOutgoing) {
+                                    colors.bubbleOutgoing
+                                } else {
+                                    colors.bubbleIncoming
+                                },
+                            ),
+                    ) {
+                        BubbleContent(message)
+                    }
                 }
 
                 if (message.reactions.isNotEmpty()) {
@@ -230,6 +244,37 @@ fun MessageRow(
                     )
                 },
             )
+        }
+    }
+}
+
+private val stickerSize = 148.dp
+
+@Composable
+private fun StickerMessage(message: Message, stickerId: StickerId) {
+    val colors = EchoTheme.colors
+    val type = EchoTheme.type
+    val store = LocalStickers.current
+
+    Column(
+        horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
+    ) {
+        StickerImage(
+            store = store,
+            id = stickerId,
+            modifier = Modifier.size(stickerSize),
+        )
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = formatClock(message.timestampMs),
+                style = type.messageMeta,
+                color = colors.textTertiary,
+            )
+            if (message.isOutgoing) {
+                Spacer(Modifier.width(4.dp))
+                StatusIndicator(message.status, colors.textTertiary)
+            }
         }
     }
 }
@@ -282,7 +327,7 @@ private fun BubbleContent(message: Message) {
         }
 
         Text(
-            text = message.text.value,
+            text = message.content.previewText().value,
             style = type.messageBody,
             color = onBubble,
         )
@@ -300,18 +345,26 @@ private fun BubbleContent(message: Message) {
             )
             if (message.isOutgoing) {
                 Spacer(Modifier.width(4.dp))
-                StatusIndicator(message.status, meta)
+                StatusIndicator(message.status, meta, readColor = colors.onBubbleOutgoing)
             }
         }
     }
 }
 
+/**
+ * @param readColor used only for [MessageStatus.Read], which sits on the bubble fill in a
+ *   text message but on the page background under a sticker.
+ */
 @Composable
-private fun StatusIndicator(status: MessageStatus, color: Color) {
+private fun StatusIndicator(
+    status: MessageStatus,
+    color: Color,
+    readColor: Color = color,
+) {
     val colors = EchoTheme.colors
     val tint = when (status) {
         MessageStatus.Failed -> colors.danger
-        MessageStatus.Read -> colors.onBubbleOutgoing
+        MessageStatus.Read -> readColor
         else -> color
     }
 

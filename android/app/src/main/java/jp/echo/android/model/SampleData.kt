@@ -15,6 +15,10 @@ object SampleData {
     private const val HOUR = 60 * MINUTE
     private const val DAY = 24 * HOUR
 
+    private fun text(value: String): MessageContent = MessageContent.Text(MessageText(value))
+
+    private fun sticker(id: String): MessageContent = MessageContent.Sticker(StickerId(id))
+
     val conversations: List<Conversation> = listOf(
         Conversation(
             id = 1,
@@ -56,7 +60,7 @@ object SampleData {
         Conversation(
             id = 5,
             title = "みお",
-            preview = MessageText("了解！"),
+            preview = MessageText("スタンプ"),
             lastTimestampMs = now() - DAY - 2 * HOUR,
             unreadCount = 0,
             isGroup = false,
@@ -85,46 +89,47 @@ object SampleData {
         fun next() = id++
 
         return listOf(
-            Message(next(), MessageText("おはよう"), base, false, "ゆうた"),
-            Message(next(), MessageText("おはよ"), base + 2 * MINUTE, true, "自分"),
+            Message(next(), text("おはよう"), base, false, "ゆうた"),
+            Message(next(), text("おはよ"), base + 2 * MINUTE, true, "自分"),
             Message(
                 next(),
-                MessageText("昨日言ってたやつ作ってみた。触ってみてほしい"),
+                text("昨日言ってたやつ作ってみた。触ってみてほしい"),
                 base + 4 * MINUTE,
                 true,
                 "自分",
                 reactions = persistentListOf(Reaction(paletteIndex = 5, count = 1, mine = false)),
             ),
-            Message(next(), MessageText("え、もうできたの？"), base + 6 * MINUTE, false, "ゆうた"),
-            Message(next(), MessageText("まだ触り心地の部分だけ"), base + 7 * MINUTE, true, "自分"),
+            Message(next(), text("え、もうできたの？"), base + 6 * MINUTE, false, "ゆうた"),
+            Message(next(), text("まだ触り心地の部分だけ"), base + 7 * MINUTE, true, "自分"),
             Message(
                 next(),
-                MessageText("返信のスワイプ、途中でやめられるようにしてある"),
+                text("返信のスワイプ、途中でやめられるようにしてある"),
                 base + 8 * MINUTE,
                 true,
                 "自分",
             ),
             Message(
                 next(),
-                MessageText("超えた瞬間だけ振動するのめっちゃいい"),
+                text("超えた瞬間だけ振動するのめっちゃいい"),
                 base + 22 * MINUTE,
                 false,
                 "ゆうた",
                 replyTo = ReplyPreview(105, "自分", MessageText("返信のスワイプ、途中でやめられるようにしてある")),
                 reactions = persistentListOf(Reaction(paletteIndex = 0, count = 1, mine = true)),
             ),
-            Message(next(), MessageText("それが一番作り込んだところ"), base + 24 * MINUTE, true, "自分"),
+            Message(next(), sticker("st_iine"), base + 23 * MINUTE, false, "ゆうた"),
+            Message(next(), text("それが一番作り込んだところ"), base + 24 * MINUTE, true, "自分"),
             Message(
                 next(),
-                MessageText("長押ししてリアクションも付けられる。指を離さずに横に動かすと選べるよ"),
+                text("長押ししてリアクションも付けられる。指を離さずに横に動かすと選べるよ"),
                 base + 25 * MINUTE,
                 true,
                 "自分",
             ),
-            Message(next(), MessageText("ほんとだ、これ気持ちいい"), base + 40 * MINUTE, false, "ゆうた"),
+            Message(next(), text("ほんとだ、これ気持ちいい"), base + 40 * MINUTE, false, "ゆうた"),
             Message(
                 next(),
-                MessageText("LINEより明らかに触ってて楽しい"),
+                text("LINEより明らかに触ってて楽しい"),
                 base + 41 * MINUTE,
                 false,
                 "ゆうた",
@@ -133,16 +138,17 @@ object SampleData {
                     Reaction(paletteIndex = 4, count = 1, mine = false),
                 ),
             ),
-            Message(next(), MessageText("それが目標だった"), base + 43 * MINUTE, true, "自分"),
+            Message(next(), text("それが目標だった"), base + 43 * MINUTE, true, "自分"),
+            Message(next(), sticker("st_arigato"), base + 44 * MINUTE, true, "自分"),
             Message(
                 next(),
-                MessageText("あとダークモードも一応入ってる。端末の設定で切り替わる"),
-                base + 44 * MINUTE,
+                text("スタンプも入れた。左下のボタンから出せる"),
+                base + 45 * MINUTE,
                 true,
                 "自分",
             ),
-            Message(next(), MessageText("見てみる"), base + 50 * MINUTE, false, "ゆうた"),
-            Message(next(), MessageText("そっちの方が絶対いいと思う"), base + 56 * MINUTE, false, "ゆうた"),
+            Message(next(), text("見てみる"), base + 50 * MINUTE, false, "ゆうた"),
+            Message(next(), text("そっちの方が絶対いいと思う"), base + 56 * MINUTE, false, "ゆうた"),
         )
     }
 
@@ -161,12 +167,18 @@ object SampleData {
             "了解",
             "👍",
         )
+        val stickerIds = listOf("st_ok", "st_ukeru", "st_otsukare", "st_matteru")
         val base = now() - 2 * DAY
+
         return List(46) { index ->
             val outgoing = (index / 2 + index % 3) % 2 == 0
             Message(
                 id = conversationId * 1_000 + index,
-                text = MessageText(lines[index % lines.size]),
+                content = if (index % 11 == 5) {
+                    sticker(stickerIds[(index / 11) % stickerIds.size])
+                } else {
+                    text(lines[index % lines.size])
+                },
                 timestampMs = base + index * 7 * MINUTE,
                 isOutgoing = outgoing,
                 senderName = if (outgoing) "自分" else partner,
