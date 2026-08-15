@@ -43,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -211,11 +212,17 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
             .scale(readyScale * pressScale * launchPulse.value)
             .shadow(3.dp, CircleShape, clip = false, spotColor = colors.glassShadow)
             .clip(CircleShape)
+            // Opaque throughout. Fading with alpha let the elevation shadow read through
+            // the fill, which showed up as a faceted silhouette inside the circle — the
+            // shadow tessellation, seen through its own button. Mixing toward the page
+            // colour looks the same and has nothing behind it to reveal.
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        colors.accent.copy(alpha = alpha),
-                        colors.accent.copy(alpha = alpha * 0.86f),
+                        lerp(colors.background, colors.accent, alpha),
+                        lerp(colors.background, colors.accent, alpha).let {
+                            lerp(it, Color.Black, 0.07f)
+                        },
                     ),
                 ),
             )

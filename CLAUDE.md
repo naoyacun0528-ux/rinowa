@@ -134,6 +134,16 @@ release APK, the debug APK, the source zip, and the release notes. Writing the p
 expecting them to be fetched from disk is not delivery; the owner asked for the files
 themselves, every time.
 
+## Never put a translucent fill straight on top of an elevation shadow
+
+Android tessellates shadow geometry into a polygon. Behind an opaque fill nobody sees it;
+behind a partly transparent one it shows through as a faceted silhouette inside the
+element — an octagon inside a circular button, in the case that found this.
+
+Fade by mixing toward the page colour (`lerp(background, accent, amount)`), not by
+lowering alpha. Same appearance, nothing behind it to reveal. This matters throughout the
+glass work, where shadows and translucency sit close together by design.
+
 ## Refresh rate
 
 Panels run from 1 Hz to 144 Hz and change rate while the app runs. **Never hardcode a
