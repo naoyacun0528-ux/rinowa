@@ -107,6 +107,13 @@ fun ChatScreen(
     var hoveredIndices by remember { mutableStateOf(setOf<Int>()) }
     var pickerOpenedAt by remember { mutableLongStateOf(0L) }
 
+    // Where the long press landed, and whether the finger has since moved far enough to
+    // mean it. The finger sits inside the bubble, which is directly under the picker, so
+    // proximity alone would mark a reaction as chosen the instant the picker appeared.
+    // Intent has to be expressed by movement, not by where the press happened to land.
+    var pickerOrigin by remember { mutableStateOf(Offset.Zero) }
+    var pickerEngaged by remember { mutableStateOf(false) }
+
     val geometry = rememberPickerGeometry()
 
     fun applyReaction(messageId: Long, paletteIndex: Int) {
@@ -157,9 +164,12 @@ fun ChatScreen(
         hoveredIndices = emptySet()
     }
 
-    fun openPicker(message: Message, holdMs: Long) {
+    fun openPicker(message: Message, local: Offset, holdMs: Long) {
         val bounds = bubbleBounds[message.id] ?: return
         haptics.perform(HapticToken.SoftConfirm)
+
+        pickerOrigin = Offset(bounds.left + local.x, bounds.top + local.y)
+        pickerEngaged = false
 
         val left = ReactionPickerMetrics.leftPx(
             anchorCenterX = bounds.center.x,
@@ -191,6 +201,14 @@ fun ChatScreen(
         if (state.latched) return
         val bounds = bubbleBounds[message.id] ?: return
         val root = Offset(bounds.left + local.x, bounds.top + local.y)
+
+        // Until the finger travels a deliberate distance, nothing is selected. A resting
+        // finger — and every finger trembles — must not choose a reaction.
+        if (!pickerEngaged) {
+            if ((root - pickerOrigin).getDistance() < geometry.engageSlopPx) return
+            pickerEngaged = true
+        }
+
         val index = ReactionPickerMetrics.indexFor(
             pointer = root,
             pillLeftPx = state.pillLeftPx,
@@ -337,7 +355,9 @@ fun ChatScreen(
                                 onSwipeCompleted = { ms ->
                                     analytics.log(AnalyticsEvent.ReplySwipeCompleted(ms))
                                 },
-                                onLongPressStart = { _, holdMs -> openPicker(message, holdMs) },
+                                onLongPressStart = { local, holdMs ->
+                                    openPicker(message, local, holdMs)
+                                },
                                 onLongPressMove = { local -> trackPicker(message, local) },
                                 onLongPressFinish = { releasePicker() },
                                 onBoundsChanged = { bounds -> bubbleBounds[message.id] = bounds },
@@ -410,6 +430,8 @@ private class PickerGeometry(
     val toleranceAbovePx: Float,
     val toleranceBelowPx: Float,
     val topLimitPx: Float,
+    /** How far the finger must travel before a slide counts as choosing a reaction. */
+    val engageSlopPx: Float,
 )
 
 @Composable
@@ -428,8 +450,11 @@ private fun rememberPickerGeometry(): PickerGeometry {
                 itemGapPx = ReactionPickerMetrics.itemGap.toPx(),
                 innerPaddingPx = ReactionPickerMetrics.innerPadding.toPx(),
                 toleranceAbovePx = 70.dp.toPx(),
-                toleranceBelowPx = 150.dp.toPx(),
+                // Was 150.dp, which reached far enough down to cover the whole bubble the
+                // finger was resting on.
+                toleranceBelowPx = 96.dp.toPx(),
                 topLimitPx = 76.dp.toPx(),
+                engageSlopPx = 18.dp.toPx(),
             )
         }
     }
