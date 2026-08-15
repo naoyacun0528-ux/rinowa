@@ -12,18 +12,30 @@
 
 ### 実装範囲
 
-- [ ] Haptic Design System（意味ベース API + 段階的フォールバック）
-- [ ] **Haptic Lab**（全触覚トークンを実機で個別に試すデバッグ画面）
-- [ ] Chat list
-- [ ] Chat screen
-- [ ] Message bubble
-- [ ] Composer
-- [ ] Send（送信アニメーション）
-- [ ] Reply swipe（threshold 到達時の触覚）
-- [ ] Long press
-- [ ] Reactions（リアクションピッカー）
-- [ ] Basic animations / スクロール挙動
-- [ ] Light / Dark（**ライト先行、ダーク対応**）
+- [x] Haptic Design System（意味ベース API + 段階的フォールバック）
+- [x] **Haptic Lab**（全触覚トークンを実機で個別に試すデバッグ画面）
+- [x] Chat list
+- [x] Chat screen
+- [x] Message bubble
+- [x] Composer
+- [x] Send（送信アニメーション）
+- [x] Reply swipe（threshold 到達時の触覚）
+- [x] Long press
+- [x] Reactions（リアクションピッカー）
+- [x] Basic animations / スクロール挙動
+- [x] Light / Dark（**ライト先行、ダーク対応**）
+
+**実装範囲は埋まった。ただしこれは完了条件ではない。**
+
+### 残っている作業
+
+- [ ] **触覚の補正**（意図的に後回しにした最大の残件）
+      Haptic Lab で全トークンを触り、`HapticTokens.kt` の数値を調整する。
+      特に「短い系はプリミティブ、形のある系は Envelope」という Tier 分類が
+      実機で正しいかを T4 / T3 固定比較で確認する
+- [ ] 送信側バブルを右スワイプすると画面右端からはみ出す（採用するかは要判断）
+- [ ] Canvas アイコンに `contentDescription` がない（TalkBack 未対応）
+- [ ] リアクションチップの「自分が付けた印」が複数付与時に最初の1つしか反映されない
 
 ### 実装しないもの
 
