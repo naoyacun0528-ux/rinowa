@@ -1,4 +1,4 @@
-# Echo — working notes for Claude Code
+﻿# Echo — working notes for Claude Code
 
 Read [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) and
 **[docs/PRIVACY_PRINCIPLES.md](docs/PRIVACY_PRINCIPLES.md)** before changing anything.
@@ -48,7 +48,7 @@ cd /c/dev/echo/android && ./gradlew testDebugUnitTest
 Launch on device:
 
 ```bash
-adb shell am start -n jp.echo.android.debug/jp.echo.android.MainActivity
+adb shell am start -n blog.nextlab.echo.debug/blog.nextlab.echo.MainActivity
 ```
 
 Screenshot:
@@ -83,7 +83,7 @@ Two things that are easy to get wrong:
 ## Tuning haptics
 
 All haptic numbers live in
-`android/core/haptics/src/main/java/jp/echo/android/core/haptics/HapticTokens.kt`.
+`android/core/haptics/src/main/java/blog/nextlab/echo/core/haptics/HapticTokens.kt`.
 Nothing else in the app contains a haptic magic number.
 
 Loop: the developer feels a token in **Haptic Lab** (ripple icon, top right of the chat

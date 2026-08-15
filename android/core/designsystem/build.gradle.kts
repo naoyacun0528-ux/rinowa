@@ -1,10 +1,10 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "jp.echo.android.core.designsystem"
+    namespace = "blog.nextlab.echo.core.designsystem"
     compileSdk = 37
 
     defaultConfig {

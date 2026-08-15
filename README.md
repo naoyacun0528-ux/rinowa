@@ -1,8 +1,8 @@
-# Echo
+﻿# Echo
 
 ネイティブ・メッセンジャー。触覚と操作感を中心に設計する。
 
-- パッケージ ID: `jp.echo.android`
+- パッケージ ID: `blog.nextlab.echo`
 - 現在のフェーズ: **Prototype 0**（ローカルのみ・ネットワークなし）
 - 対象: Android（主開発）→ iOS（Android の操作感が確定してから）
 - Web版は作らない

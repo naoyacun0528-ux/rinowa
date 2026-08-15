@@ -1,9 +1,9 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.library)
 }
 
 android {
-    namespace = "jp.echo.android.core.analytics"
+    namespace = "blog.nextlab.echo.core.analytics"
     compileSdk = 37
 
     defaultConfig {

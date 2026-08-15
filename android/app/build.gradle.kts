@@ -1,9 +1,25 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.services)
+}
+
+// The Google Services plugin fails the build outright when it cannot find a config, or
+// finds one whose clients do not match the applicationId. Applying it only once a config
+// is actually present means the project still builds for anyone who was never given one,
+// and that changing the applicationId does not brick every build until Firebase catches
+// up. Firebase engages the moment the file lands.
+val firebaseConfigured = listOf(
+    "google-services.json",
+    "src/debug/google-services.json",
+    "src/release/google-services.json",
+).any { file(it).exists() }
+
+if (firebaseConfigured) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.lifecycle("Firebase: no google-services.json found, Google Services plugin skipped")
 }
 
 // Release signing. keystore.properties is machine-local and gitignored, and the keystore
@@ -18,11 +34,11 @@ val keystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "jp.echo.android"
+    namespace = "blog.nextlab.echo"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "jp.echo.android"
+        applicationId = "blog.nextlab.echo"
         minSdk = 24
         targetSdk = 37
         // Versioning: fixes and small additions bump the patch (0.1.0 -> 0.1.1); a

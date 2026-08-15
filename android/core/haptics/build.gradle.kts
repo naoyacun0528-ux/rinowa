@@ -1,10 +1,10 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "jp.echo.android.core.haptics"
+    namespace = "blog.nextlab.echo.core.haptics"
     compileSdk = 37
 
     defaultConfig {

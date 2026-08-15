@@ -1,4 +1,4 @@
-<#
+﻿<#
     Builds a release drop into outputs\<version>\.
 
     Produces:
@@ -50,7 +50,7 @@ $hasReleaseFirebase = (Test-Path (Join-Path $android 'app\src\release\google-ser
                       (Test-Path (Join-Path $android 'app\google-services.json'))
 
 if (-not $hasReleaseFirebase) {
-    Write-Host 'release: skipped -- jp.echo.android is not registered in Firebase yet.'
+    Write-Host 'release: skipped -- blog.nextlab.echo is not registered in Firebase yet.'
     Write-Host '         Add it in the console, download google-services.json again, and'
     Write-Host '         place it at android/app/google-services.json (it covers both variants).'
 }

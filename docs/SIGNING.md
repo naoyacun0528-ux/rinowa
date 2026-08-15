@@ -1,4 +1,4 @@
-# 署名鍵（keystore）
+﻿# 署名鍵（keystore）
 
 Android アプリは署名鍵で「同じアプリである」ことを証明します。
 **鍵が変わると、Android は別のアプリとして扱います。**
@@ -87,7 +87,7 @@ apksigner verify --print-certs --min-sdk-version 24 echo-0.1.2-release.apk
 **このファイルが無い環境では、release ビルドは署名なしになるだけで失敗しません。**
 配布しているソース zip には含まれないため、他の人がビルドしても止まらないようにしてあります。
 
-debug ビルドは従来どおり開発用の鍵で署名され、`jp.echo.android.debug` として入ります。
+debug ビルドは従来どおり開発用の鍵で署名され、`blog.nextlab.echo.debug` として入ります。
 release とは applicationId が違うので、同じ端末に両方入れられます。
 
 ---
