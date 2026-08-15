@@ -171,11 +171,16 @@ fun ChatScreen(
         hoveredIndices = emptySet()
     }
 
-    fun openPicker(message: Message, local: Offset, holdMs: Long) {
+    /**
+     * @param local where the finger is, for a long press. Null when the picker was opened
+     *   by tapping a reaction chip — there is no finger to slide, so it opens latched and
+     *   ready to be tapped.
+     */
+    fun showPicker(message: Message, local: Offset?, holdMs: Long?) {
         val bounds = bubbleBounds[message.id] ?: return
         haptics.perform(HapticToken.SoftConfirm)
 
-        pickerOrigin = Offset(bounds.left + local.x, bounds.top + local.y)
+        pickerOrigin = local?.let { Offset(bounds.left + it.x, bounds.top + it.y) } ?: Offset.Zero
         pickerEngaged = false
 
         val left = ReactionPickerMetrics.leftPx(
@@ -197,9 +202,9 @@ fun ChatScreen(
             pillTopPx = top,
             highlightedIndex = -1,
             alreadyReactedIndex = message.reactions.firstOrNull { it.mine }?.paletteIndex,
-            latched = false,
+            latched = local == null,
         )
-        analytics.log(AnalyticsEvent.MessageLongPressed(holdMs))
+        holdMs?.let { analytics.log(AnalyticsEvent.MessageLongPressed(it)) }
         analytics.log(AnalyticsEvent.ReactionPickerOpened)
     }
 
@@ -363,11 +368,12 @@ fun ChatScreen(
                                     analytics.log(AnalyticsEvent.ReplySwipeCompleted(ms))
                                 },
                                 onLongPressStart = { local, holdMs ->
-                                    openPicker(message, local, holdMs)
+                                    showPicker(message, local, holdMs)
                                 },
                                 onLongPressMove = { local -> trackPicker(message, local) },
                                 onLongPressFinish = { releasePicker() },
                                 onBoundsChanged = { bounds -> bubbleBounds[message.id] = bounds },
+                                onReactionChipClick = { showPicker(message, null, null) },
                             ),
                         )
                     }

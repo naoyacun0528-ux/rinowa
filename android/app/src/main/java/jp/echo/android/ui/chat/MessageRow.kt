@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,6 +76,8 @@ class MessageRowCallbacks(
     val onLongPressMove: (localPosition: Offset) -> Unit = {},
     val onLongPressFinish: () -> Unit = {},
     val onBoundsChanged: (Rect) -> Unit = {},
+    /** A reaction chip under the bubble was tapped. */
+    val onReactionChipClick: () -> Unit = {},
 )
 
 /**
@@ -211,7 +215,7 @@ fun MessageRow(
 
                 if (message.reactions.isNotEmpty()) {
                     Spacer(Modifier.height(4.dp))
-                    ReactionChips(message)
+                    ReactionChips(message, onClick = { cb.onReactionChipClick() })
                 }
             }
 
@@ -349,8 +353,15 @@ private fun StatusIndicator(status: MessageStatus, color: Color) {
     }
 }
 
+/**
+ * Reactions already on the message.
+ *
+ * Tapping one reopens the picker. Long-pressing the bubble is the way in the first time,
+ * but once a reaction is visible it is the obvious thing to press to change it, and it
+ * being inert would read as broken.
+ */
 @Composable
-private fun ReactionChips(message: Message) {
+private fun ReactionChips(message: Message, onClick: () -> Unit) {
     val colors = EchoTheme.colors
     val type = EchoTheme.type
 
@@ -362,6 +373,11 @@ private fun ReactionChips(message: Message) {
                     .height(EchoDimens.reactionChipHeight)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(if (reaction.mine) colors.accentSoft else colors.surfaceSunken)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    )
                     .padding(horizontal = 8.dp),
             ) {
                 Text(text = reaction.emoji, style = type.labelSmall)

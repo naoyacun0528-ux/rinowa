@@ -11,8 +11,11 @@ android {
         applicationId = "jp.echo.android"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0-p0"
+        // Versioning: fixes and small additions bump the patch (0.1.0 -> 0.1.1); a
+        // substantial new feature bumps the minor (0.1.x -> 0.2.0).
+        // Keep in sync with outputs/README.md.
+        versionCode = 2
+        versionName = "0.1.1"
     }
 
     buildTypes {
