@@ -95,6 +95,23 @@ is **20 ms**, so a 2-point envelope cannot be shorter than 40 ms. Short, instant
 tokens are therefore capped at the primitive tier via `HapticSpec.preferredMaxTier`.
 The top tier is not automatically the best tier.
 
+## A trap that already cost one round
+
+Never put `pointerInput` on a node that the same gesture translates. Pointer positions are
+reported relative to that node, so the drag subtracts itself and the element tracks at half
+finger speed while oscillating around the equilibrium — it looks like the bubble is drawn
+twice, and the oscillation re-crosses the threshold so the haptic fires more than once.
+Attach the gesture to the stationary container and move a child.
+
+`DebugAnalytics` makes this kind of thing measurable without adding logging:
+
+```bash
+adb logcat -c && adb shell input swipe 150 1083 560 1083 1200 && adb logcat -d | grep EchoAnalytics
+```
+
+Compare `time_to_threshold_ms` against what the geometry predicts. Guessing at gesture bugs
+from a screenshot does not work; the timings say plainly whether it is right.
+
 ## Current phase
 
 **Prototype 0** — local only, no network, Android only. See [docs/ROADMAP.md](docs/ROADMAP.md).

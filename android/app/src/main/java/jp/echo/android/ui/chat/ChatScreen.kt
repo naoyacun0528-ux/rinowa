@@ -1,12 +1,12 @@
 package jp.echo.android.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,8 +28,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,8 +45,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -54,7 +52,6 @@ import jp.echo.android.core.analytics.AnalyticsEvent
 import jp.echo.android.core.analytics.AttachmentType
 import jp.echo.android.core.analytics.ConversationType
 import jp.echo.android.core.designsystem.EchoDimens
-import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoSwipe
 import jp.echo.android.core.designsystem.EchoTheme
 import jp.echo.android.core.haptics.HapticToken
@@ -101,13 +98,6 @@ fun ChatScreen(
     val conversationType =
         if (conversation.isGroup) ConversationType.Group else ConversationType.Direct
 
-    // ---- reply swipe ------------------------------------------------------------
-    // Only one message can be dragged at a time, so one offset is enough.
-    var swipingMessageId by remember { mutableStateOf<Long?>(null) }
-    var swipeOffset by remember { mutableFloatStateOf(0f) }
-    var swipePastThreshold by remember { mutableStateOf(false) }
-    var swipeStartedAt by remember { mutableLongStateOf(0L) }
-
     val thresholdPx = with(density) { EchoSwipe.ThresholdDistance.toPx() }
     val maxSwipePx = with(density) { EchoSwipe.MaxDistance.toPx() }
 
@@ -152,9 +142,8 @@ fun ChatScreen(
         messages[index] = message.copy(reactions = updated)
     }
 
-    fun closePicker() {
+    fun closePicker(committedIndex: Int) {
         val state = picker ?: return
-        val committedIndex = state.highlightedIndex
         val openMs = System.currentTimeMillis() - pickerOpenedAt
         if (committedIndex >= 0) {
             haptics.perform(HapticToken.Reaction)
@@ -191,6 +180,7 @@ fun ChatScreen(
             pillTopPx = top,
             highlightedIndex = -1,
             alreadyReactedIndex = message.reactions.firstOrNull { it.mine }?.paletteIndex,
+            latched = false,
         )
         analytics.log(AnalyticsEvent.MessageLongPressed(holdMs))
         analytics.log(AnalyticsEvent.ReactionPickerOpened)
@@ -198,6 +188,7 @@ fun ChatScreen(
 
     fun trackPicker(message: Message, local: Offset) {
         val state = picker ?: return
+        if (state.latched) return
         val bounds = bubbleBounds[message.id] ?: return
         val root = Offset(bounds.left + local.x, bounds.top + local.y)
         val index = ReactionPickerMetrics.indexFor(
@@ -218,6 +209,20 @@ fun ChatScreen(
                 hoveredIndices = hoveredIndices + index
             }
             picker = state.copy(highlightedIndex = index)
+        }
+    }
+
+    /**
+     * The finger lifted. If it was resting on a reaction, commit it; otherwise leave the
+     * picker open so it can simply be tapped. Lifting must not cancel the interaction —
+     * "keep holding and slide" is a shortcut, not a requirement.
+     */
+    fun releasePicker() {
+        val state = picker ?: return
+        if (state.highlightedIndex >= 0) {
+            closePicker(state.highlightedIndex)
+        } else {
+            picker = state.copy(latched = true)
         }
     }
 
@@ -273,7 +278,9 @@ fun ChatScreen(
         }
     }
 
-    val chatItems = remember(messages.toList()) { buildChatItems(messages) }
+    // derivedStateOf, not remember(messages.toList()): the latter copied and compared the
+    // whole thread on every recomposition, including every keystroke in the composer.
+    val chatItems by remember { derivedStateOf { buildChatItems(messages) } }
 
     Box(
         Modifier
@@ -302,59 +309,6 @@ fun ChatScreen(
             ) {
                 items(chatItems.asReversed(), key = { it.message.id }) { item ->
                     val message = item.message
-                    val isSwiping = swipingMessageId == message.id
-                    val offset = if (isSwiping) swipeOffset else 0f
-
-                    val handlers = remember(message.id) {
-                        MessageGestureHandlers(
-                            onSwipeStart = {
-                                swipingMessageId = message.id
-                                swipePastThreshold = false
-                                swipeStartedAt = System.currentTimeMillis()
-                                analytics.log(AnalyticsEvent.ReplySwipeStarted)
-                            },
-                            onSwipeUpdate = { px -> swipeOffset = px },
-                            onThresholdEnter = {
-                                swipePastThreshold = true
-                                // The only haptic in the entire drag.
-                                haptics.perform(HapticToken.Threshold)
-                                analytics.log(
-                                    AnalyticsEvent.ReplySwipeThresholdReached(
-                                        System.currentTimeMillis() - swipeStartedAt,
-                                    ),
-                                )
-                            },
-                            onThresholdExit = {
-                                swipePastThreshold = false
-                                haptics.perform(HapticToken.ThresholdRelease)
-                            },
-                            onSwipeFinish = { committed, maxRatio, everPast, durationMs ->
-                                if (committed) {
-                                    replyingTo = message
-                                    analytics.log(AnalyticsEvent.ReplySwipeCompleted(durationMs))
-                                } else {
-                                    analytics.log(
-                                        AnalyticsEvent.ReplySwipeCancelled(
-                                            (maxRatio * 100).toInt(),
-                                            everPast,
-                                        ),
-                                    )
-                                }
-                                scope.launch {
-                                    animate(
-                                        initialValue = swipeOffset,
-                                        targetValue = 0f,
-                                        animationSpec = EchoMotion.commitSpring(),
-                                    ) { value, _ -> swipeOffset = value }
-                                    swipingMessageId = null
-                                    swipePastThreshold = false
-                                }
-                            },
-                            onLongPressStart = { _, holdMs -> openPicker(message, holdMs) },
-                            onLongPressMove = { local -> trackPicker(message, local) },
-                            onLongPressFinish = { closePicker() },
-                        )
-                    }
 
                     Column {
                         item.dayHeader?.let { DaySeparator(it) }
@@ -363,20 +317,31 @@ fun ChatScreen(
                             message = message,
                             isFirstOfGroup = item.isFirstOfGroup,
                             isLastOfGroup = item.isLastOfGroup,
-                            swipeOffsetPx = offset,
-                            swipeProgress = if (thresholdPx > 0f) offset / thresholdPx else 0f,
-                            pastThreshold = isSwiping && swipePastThreshold,
                             dimmed = picker != null && picker?.messageId != message.id,
                             raised = picker?.messageId == message.id,
-                            bubbleModifier = Modifier
-                                .onGloballyPositioned { bubbleBounds[message.id] = it.boundsInRoot() }
-                                .messageGestures(
-                                    key = message.id,
-                                    enabled = true,
-                                    thresholdPx = thresholdPx,
-                                    maxPx = maxSwipePx,
-                                    handlers = handlers,
-                                ),
+                            thresholdPx = thresholdPx,
+                            maxPx = maxSwipePx,
+                            callbacks = MessageRowCallbacks(
+                                onReply = { replyingTo = message },
+                                onSwipeStarted = {
+                                    analytics.log(AnalyticsEvent.ReplySwipeStarted)
+                                },
+                                onThresholdReached = { ms ->
+                                    analytics.log(AnalyticsEvent.ReplySwipeThresholdReached(ms))
+                                },
+                                onSwipeCancelled = { percent, everPast ->
+                                    analytics.log(
+                                        AnalyticsEvent.ReplySwipeCancelled(percent, everPast),
+                                    )
+                                },
+                                onSwipeCompleted = { ms ->
+                                    analytics.log(AnalyticsEvent.ReplySwipeCompleted(ms))
+                                },
+                                onLongPressStart = { _, holdMs -> openPicker(message, holdMs) },
+                                onLongPressMove = { local -> trackPicker(message, local) },
+                                onLongPressFinish = { releasePicker() },
+                                onBoundsChanged = { bounds -> bubbleBounds[message.id] = bounds },
+                            ),
                         )
                     }
                 }
@@ -407,14 +372,29 @@ fun ChatScreen(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize(),
         ) {
+            val latched = picker?.latched == true
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(colors.scrim),
+                    .background(colors.scrim)
+                    .then(
+                        // Only tappable once latched; while the finger is down the
+                        // gesture owns the interaction.
+                        if (latched) {
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { closePicker(-1) }
+                        } else {
+                            Modifier
+                        },
+                    ),
             )
         }
 
-        picker?.let { ReactionPickerOverlay(it) }
+        picker?.let { state ->
+            ReactionPickerOverlay(state = state, onSelect = { index -> closePicker(index) })
+        }
     }
 }
 

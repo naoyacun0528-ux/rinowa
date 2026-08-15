@@ -2,6 +2,7 @@ package jp.echo.android.ui.chat
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -86,10 +87,22 @@ data class ReactionPickerState(
     val pillTopPx: Float,
     val highlightedIndex: Int,
     val alreadyReactedIndex: Int?,
+    /**
+     * True once the finger has lifted without choosing anything.
+     *
+     * Sliding to a reaction without lifting is the fast path, but it is not discoverable
+     * — nothing on screen says "keep holding". So lifting does not dismiss: the picker
+     * latches open and becomes tappable. Both ways work, and the quick one is there to
+     * be found rather than required.
+     */
+    val latched: Boolean = false,
 )
 
 @Composable
-fun ReactionPickerOverlay(state: ReactionPickerState) {
+fun ReactionPickerOverlay(
+    state: ReactionPickerState,
+    onSelect: (Int) -> Unit,
+) {
     val colors = EchoTheme.colors
 
     Box(
@@ -110,6 +123,11 @@ fun ReactionPickerOverlay(state: ReactionPickerState) {
                     emoji = emoji,
                     highlighted = index == state.highlightedIndex,
                     alreadyChosen = index == state.alreadyReactedIndex,
+                    onClick = if (state.latched) {
+                        { onSelect(index) }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -121,6 +139,7 @@ private fun ReactionPickerItem(
     emoji: String,
     highlighted: Boolean,
     alreadyChosen: Boolean,
+    onClick: (() -> Unit)?,
 ) {
     val colors = EchoTheme.colors
     val scale by animateFloatAsState(
@@ -138,15 +157,9 @@ private fun ReactionPickerItem(
         modifier = Modifier
             .size(ReactionPickerMetrics.itemSize)
             .offset { IntOffset(0, lift.roundToInt()) }
-            .then(
-                if (alreadyChosen) {
-                    Modifier
-                        .clip(RoundedCornerShape(percent = 50))
-                        .background(colors.accentSoft)
-                } else {
-                    Modifier
-                },
-            ),
+            .clip(RoundedCornerShape(percent = 50))
+            .then(if (alreadyChosen) Modifier.background(colors.accentSoft) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         Text(text = emoji, fontSize = 24.sp, modifier = Modifier.scale(scale))

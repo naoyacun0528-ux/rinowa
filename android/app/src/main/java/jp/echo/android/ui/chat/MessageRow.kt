@@ -1,6 +1,7 @@
 package jp.echo.android.ui.chat
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -20,46 +21,140 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.haptics.HapticToken
+import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Message
 import jp.echo.android.model.MessageStatus
 import jp.echo.android.ui.common.formatClock
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val affordanceSize = 30.dp
 private val affordanceGap = 12.dp
 
+/** Once past the threshold, the drag must fall back to this fraction of it to release. */
+private const val THRESHOLD_HYSTERESIS = 0.78f
+
+class MessageRowCallbacks(
+    val onReply: () -> Unit = {},
+    val onSwipeStarted: () -> Unit = {},
+    val onThresholdReached: (timeToThresholdMs: Long) -> Unit = {},
+    val onSwipeCancelled: (maxDragPercent: Int, everPastThreshold: Boolean) -> Unit = { _, _ -> },
+    val onSwipeCompleted: (durationMs: Long) -> Unit = {},
+    val onLongPressStart: (localPosition: Offset, holdMs: Long) -> Unit = { _, _ -> },
+    val onLongPressMove: (localPosition: Offset) -> Unit = {},
+    val onLongPressFinish: () -> Unit = {},
+    val onBoundsChanged: (Rect) -> Unit = {},
+)
+
+/**
+ * One message.
+ *
+ * The swipe offset lives here, per row, rather than being hoisted into the screen. When
+ * it was shared, starting a swipe on one bubble while another bubble's release animation
+ * was still running left two writers on the same value, and the second bubble snapped
+ * back mid-drag when the first animation finished.
+ */
 @Composable
 fun MessageRow(
     message: Message,
     isFirstOfGroup: Boolean,
     isLastOfGroup: Boolean,
-    swipeOffsetPx: Float,
-    swipeProgress: Float,
-    pastThreshold: Boolean,
     dimmed: Boolean,
     raised: Boolean,
+    thresholdPx: Float,
+    maxPx: Float,
+    callbacks: MessageRowCallbacks,
     modifier: Modifier = Modifier,
-    bubbleModifier: Modifier = Modifier,
 ) {
     val colors = EchoTheme.colors
+    val haptics = LocalEchoHaptics.current
+    val scope = rememberCoroutineScope()
     val maxWidth = LocalConfiguration.current.screenWidthDp.dp * EchoDimens.bubbleMaxWidthFraction
+
+    // Callbacks are recreated by the caller on every recomposition, but the gesture's
+    // handlers are remembered, so read them through a state holder to avoid capturing a
+    // stale set for the lifetime of the row.
+    val cb by rememberUpdatedState(callbacks)
+
+    var offsetPx by remember { mutableFloatStateOf(0f) }
+    var pastThreshold by remember { mutableStateOf(false) }
+    var swipeStartedAt by remember { mutableLongStateOf(0L) }
+    var releaseJob by remember { mutableStateOf<Job?>(null) }
+
+    val handlers = remember(message.id) {
+        MessageGestureHandlers(
+            onSwipeStart = {
+                // Cancel any in-flight release so the two never fight over the offset.
+                releaseJob?.cancel()
+                releaseJob = null
+                offsetPx = 0f
+                pastThreshold = false
+                swipeStartedAt = System.currentTimeMillis()
+                cb.onSwipeStarted()
+            },
+            onSwipeUpdate = { px -> offsetPx = px },
+            onThresholdEnter = {
+                pastThreshold = true
+                // The one and only haptic during the drag.
+                haptics.perform(HapticToken.Threshold)
+                cb.onThresholdReached(System.currentTimeMillis() - swipeStartedAt)
+            },
+            onThresholdExit = {
+                pastThreshold = false
+                haptics.perform(HapticToken.ThresholdRelease)
+            },
+            onSwipeFinish = { committed, maxRatio, everPast, durationMs ->
+                if (committed) {
+                    cb.onReply()
+                    cb.onSwipeCompleted(durationMs)
+                } else {
+                    cb.onSwipeCancelled((maxRatio * 100).toInt(), everPast)
+                }
+                releaseJob = scope.launch {
+                    animate(
+                        initialValue = offsetPx,
+                        targetValue = 0f,
+                        animationSpec = EchoMotion.commitSpring(),
+                    ) { value, _ -> offsetPx = value }
+                    pastThreshold = false
+                    releaseJob = null
+                }
+            },
+            onLongPressStart = { local, holdMs -> cb.onLongPressStart(local, holdMs) },
+            onLongPressMove = { local -> cb.onLongPressMove(local) },
+            onLongPressFinish = { cb.onLongPressFinish() },
+        )
+    }
 
     val dimAlpha by animateFloatAsState(
         targetValue = if (dimmed) 0.45f else 1f,
@@ -81,15 +176,30 @@ fun MessageRow(
             .alpha(dimAlpha),
         horizontalArrangement = if (message.isOutgoing) Arrangement.End else Arrangement.Start,
     ) {
-        Box(contentAlignment = Alignment.CenterStart) {
+        // Stationary: this box never moves, so pointer coordinates stay in a fixed frame.
+        // Its measured size is unaffected by the offset applied to its child, because
+        // Modifier.offset {} runs at placement time.
+        Box(
+            contentAlignment = Alignment.CenterStart,
+            modifier = Modifier
+                .onGloballyPositioned { cb.onBoundsChanged(it.boundsInRoot()) }
+                .messageGestures(
+                    key = message.id,
+                    enabled = true,
+                    thresholdPx = thresholdPx,
+                    releaseThresholdPx = thresholdPx * THRESHOLD_HYSTERESIS,
+                    maxPx = maxPx,
+                    handlers = handlers,
+                ),
+        ) {
             Column(
                 horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
                 modifier = Modifier
-                    .offset { IntOffset(swipeOffsetPx.roundToInt(), 0) }
+                    .offset { IntOffset(offsetPx.roundToInt(), 0) }
                     .scale(raiseScale),
             ) {
                 Box(
-                    modifier = bubbleModifier
+                    modifier = Modifier
                         .widthIn(max = maxWidth)
                         .clip(bubbleShape(message.isOutgoing, isFirstOfGroup, isLastOfGroup))
                         .background(
@@ -107,11 +217,11 @@ fun MessageRow(
 
             // Slides out from behind the bubble's leading edge as the bubble moves away.
             ReplyAffordance(
-                progress = swipeProgress,
+                progress = if (thresholdPx > 0f) offsetPx / thresholdPx else 0f,
                 pastThreshold = pastThreshold,
                 modifier = Modifier.offset {
                     IntOffset(
-                        (swipeOffsetPx - (affordanceSize + affordanceGap).toPx()).roundToInt(),
+                        (offsetPx - (affordanceSize + affordanceGap).toPx()).roundToInt(),
                         0,
                     )
                 },
@@ -161,7 +271,7 @@ private fun BubbleContent(message: Message) {
                         style = type.quotedBody,
                         color = onBubble.copy(alpha = 0.65f),
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -330,9 +440,9 @@ private fun bubbleShape(
 ): RoundedCornerShape {
     val large = EchoDimens.bubbleCornerLarge
     val tail = EchoDimens.bubbleCornerTail
-    // Only the corner pointing at the sender is tightened, and only on the edges that
-    // touch another bubble from the same sender. That is what makes a run of messages
-    // read as one block instead of a stack of identical pills.
+    // Only the corner pointing at the sender is tightened, and only on edges that touch
+    // another bubble from the same sender. That is what makes a run of messages read as
+    // one block instead of a stack of identical pills.
     return if (isOutgoing) {
         RoundedCornerShape(
             topStart = large,

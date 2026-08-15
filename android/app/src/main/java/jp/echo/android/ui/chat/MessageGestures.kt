@@ -49,14 +49,31 @@ private enum class GestureMode { Undecided, Swipe, LongPress, Tap, Abandoned }
  *  - leftward movement first  -> abandon (reserved; left swipe has no meaning yet)
  *  - no movement until the long-press timeout -> reaction picker
  *  - released before any of the above -> tap
+ *
+ * ## This modifier must go on a node the drag does not move
+ *
+ * Pointer positions are reported relative to the node that owns the `pointerInput`. If
+ * that node is the one being translated by the drag, every pixel the bubble travels is
+ * subtracted from the next reported position, and the system settles at
+ * `offset = fingerTravel - offset`, i.e. the bubble tracks at exactly half finger speed
+ * while oscillating around that equilibrium each frame.
+ *
+ * That was measured, not guessed: a 410 px swipe over 1200 ms crossed a 189 px threshold
+ * at 1089 ms, by which point the finger had travelled 372 px — half of which is 186 px.
+ * Visually it reads as the bubble flickering between two positions, and the oscillation
+ * re-crosses the threshold, firing the threshold haptic more than once.
+ *
+ * So: attach this to the stationary container and translate a **child** of it.
  */
 fun Modifier.messageGestures(
     key: Any?,
     enabled: Boolean,
     thresholdPx: Float,
+    /** Hysteresis: once past, the drag must fall back to here before it counts as released. */
+    releaseThresholdPx: Float,
     maxPx: Float,
     handlers: MessageGestureHandlers,
-): Modifier = if (!enabled) this else pointerInput(key, thresholdPx, maxPx) {
+): Modifier = if (!enabled) this else pointerInput(key, thresholdPx, releaseThresholdPx, maxPx) {
     val slop = viewConfiguration.touchSlop
     val longPressTimeoutMs = viewConfiguration.longPressTimeoutMillis
 
@@ -120,7 +137,13 @@ fun Modifier.messageGestures(
                     offset = EchoSwipe.resist(raw, thresholdPx, maxPx)
                     maxOffset = max(maxOffset, offset)
 
-                    val nowPast = offset >= thresholdPx
+                    // Hysteresis, so a finger resting on the line cannot chatter the
+                    // threshold haptic on and off.
+                    val nowPast = if (pastThreshold) {
+                        offset >= releaseThresholdPx
+                    } else {
+                        offset >= thresholdPx
+                    }
                     if (nowPast != pastThreshold) {
                         pastThreshold = nowPast
                         if (nowPast) {
