@@ -74,10 +74,17 @@ blog.nextlab.echo.debug  1:321506749950:android:6cf4716d2c1d5e706764af
 左サイドバー **「構築」→「Firestore Database」**
 
 1. **「データベースの作成」**
-2. **データベース ID** はそのまま（`(default)`）
-3. **ロケーション** で **`asia-northeast1`（東京）** を選ぶ
-4. **「本番環境モードで開始する」** を選ぶ ← ここ重要
-5. **「作成」**
+2. **エディション** は **Standard**
+3. **データベース ID** はそのまま（`(default)`）
+4. **ロケーション** で **`asia-northeast1`（東京）** を選ぶ
+5. **「本番環境モードで開始する」** を選ぶ ← ここ重要
+6. **「作成」**
+
+> **Enterprise を選ばないでください。** あれは MongoDB 互換 API の系統で、用途が違います。
+> CLI のヘルプにも `--mongodb-compatible-data-access` は enterprise 専用と書かれています。
+> Echo は Firebase の Android SDK をそのまま使うため Standard が前提の道であり、
+> Security Rules もオフライン永続化も Standard を想定した仕組みです。
+> CLI の既定値も `standard` です。
 
 作成に1〜2分かかります。
 
