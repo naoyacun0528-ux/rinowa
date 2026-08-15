@@ -34,8 +34,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import jp.echo.android.core.analytics.AnalyticsEvent
+import jp.echo.android.core.designsystem.EchoColors
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.EchoTypography
+import jp.echo.android.core.designsystem.GlassSurface
 import jp.echo.android.core.designsystem.preferHighFrameRate
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
@@ -158,13 +161,32 @@ private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
     val type = EchoTheme.type
     val unread = conversation.unreadCount > 0
 
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = EchoDimens.glassCardMargin,
+                vertical = EchoDimens.glassCardGap / 2,
+            ),
+        onClick = onClick,
+    ) {
+        ConversationRowContent(conversation, colors, type, unread)
+    }
+}
+
+@Composable
+private fun ConversationRowContent(
+    conversation: Conversation,
+    colors: EchoColors,
+    type: EchoTypography,
+    unread: Boolean,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(
-                horizontal = EchoDimens.screenPadding,
+                horizontal = EchoDimens.listItemPadding,
                 vertical = EchoDimens.listItemPadding,
             ),
     ) {

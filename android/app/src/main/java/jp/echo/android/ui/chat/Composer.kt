@@ -31,7 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
@@ -46,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.GlassSurface
+import jp.echo.android.core.designsystem.GlassTone
 import jp.echo.android.model.Message
 import jp.echo.android.model.previewText
 
@@ -182,8 +186,17 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .size(EchoDimens.composerMinHeight)
             .scale(scale)
+            .shadow(3.dp, CircleShape, clip = false, spotColor = colors.glassShadow)
             .clip(CircleShape)
-            .background(colors.accent.copy(alpha = alpha))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        colors.accent.copy(alpha = alpha),
+                        colors.accent.copy(alpha = alpha * 0.86f),
+                    ),
+                ),
+            )
+            .border(1.dp, Brush.verticalGradient(listOf(colors.glassEdge.copy(alpha = 0.45f), Color.Transparent)), CircleShape)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -277,13 +290,14 @@ private fun IconCircleButton(
     val resolvedTint = tint ?: colors.textSecondary
     val description = contentDescription
 
-    Box(
+    GlassSurface(
         modifier = Modifier
             .size(EchoDimens.composerMinHeight)
             .defaultMinSize(EchoDimens.touchTarget, EchoDimens.touchTarget)
-            .clip(CircleShape)
-            .clickable(onClick = onClick)
             .semantics { this.contentDescription = description },
+        shape = CircleShape,
+        tone = GlassTone.Control,
+        onClick = onClick,
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(22.dp)) {

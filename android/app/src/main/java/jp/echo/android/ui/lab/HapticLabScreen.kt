@@ -157,12 +157,25 @@ fun HapticLabScreen(onBack: () -> Unit) {
                 )
             }
 
-            item { SectionTitle("トークン") }
+            item {
+                SectionTitle("トークン")
+                Text(
+                    text = "バッジは実際に使われる Tier。" +
+                        "「制限」は端末がもっと上に対応していても、" +
+                        "そのトークンの意味に合わないため意図的に下げていることを示します。",
+                    style = type.labelSmall,
+                    color = colors.textTertiary,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             items(HapticToken.entries, key = { it.name }) { token ->
+                val resolved = if (forcedTier != null) forcedTier!! else haptics.tierFor(token)
                 TokenRow(
                     token = token,
-                    resolvedTier = if (forcedTier != null) forcedTier!! else haptics.tierFor(token),
+                    resolvedTier = resolved,
                     forced = forcedTier != null,
+                    // Capped: the device could do better, but this token should not.
+                    capped = forcedTier == null && resolved != capabilities.bestTier,
                     onFire = { haptics.previewToken(token, forcedTier) },
                 )
             }
@@ -234,6 +247,7 @@ private fun TokenRow(
     token: HapticToken,
     resolvedTier: HapticTier,
     forced: Boolean,
+    capped: Boolean,
     onFire: () -> Unit,
 ) {
     val colors = EchoTheme.colors
@@ -263,7 +277,7 @@ private fun TokenRow(
             )
         }
         Spacer(Modifier.width(10.dp))
-        TierBadge(resolvedTier, forced)
+        TierBadge(resolvedTier, forced, capped)
     }
 }
 
@@ -308,7 +322,7 @@ private fun ComparisonRow(comparison: Comparison, onPlay: () -> Unit) {
 }
 
 @Composable
-private fun TierBadge(tier: HapticTier, forced: Boolean) {
+private fun TierBadge(tier: HapticTier, forced: Boolean, capped: Boolean = false) {
     val colors = EchoTheme.colors
     val type = EchoTheme.type
     Box(
@@ -318,9 +332,13 @@ private fun TierBadge(tier: HapticTier, forced: Boolean) {
             .padding(horizontal = 9.dp, vertical = 4.dp),
     ) {
         Text(
-            text = tierShort(tier),
+            text = if (capped) "${tierShort(tier)} 制限" else tierShort(tier),
             style = type.labelSmall,
-            color = if (forced) colors.accent else colors.textSecondary,
+            color = when {
+                forced -> colors.accent
+                capped -> colors.textTertiary
+                else -> colors.textSecondary
+            },
         )
     }
 }

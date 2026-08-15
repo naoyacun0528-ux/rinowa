@@ -43,12 +43,23 @@ data class EchoColors(
     val danger: Color,
     val success: Color,
 
+    // Glass. See EchoGlass.kt — no refraction, so what sells it is the edge, the
+    // not-quite-flat face, the lift off the page, and the bloom under a finger.
+    val glassFaceHigh: Color,
+    val glassFace: Color,
+    val glassEdge: Color,
+    val glassEdgeLow: Color,
+    val glassGlow: Color,
+    val glassShadow: Color,
+
     val scrim: Color,
     val isLight: Boolean,
 )
 
 val EchoLightColors = EchoColors(
-    background = Color(0xFFFBF9F7),
+    // Deeper than the near-white it was, so a white pane can visibly sit above it.
+    // Glass needs the page to be darker than the glass; otherwise nothing floats.
+    background = Color(0xFFF2EDE7),
     surface = Color(0xFFFFFFFF),
     surfaceRaised = Color(0xFFFFFFFF),
     surfaceSunken = Color(0xFFF3EFEB),
@@ -66,12 +77,22 @@ val EchoLightColors = EchoColors(
     bubbleOutgoing = Color(0xFFB4501E),
     onBubbleOutgoing = Color(0xFFFDF8F4),
     bubbleOutgoingMeta = Color(0xFFF0CDB6),
-    bubbleIncoming = Color(0xFFF0EBE5),
+    // White, not the old near-background beige. Once the page was deepened so glass could
+    // float, an incoming bubble at #F0EBE5 sat within a hair of the background and all
+    // but vanished. It now belongs to the same family as the cards: a pane above paper.
+    bubbleIncoming = Color(0xFFFFFFFF),
     onBubbleIncoming = Color(0xFF17161A),
-    bubbleIncomingMeta = Color(0xFF8C847C),
+    bubbleIncomingMeta = Color(0xFF9A9187),
 
     danger = Color(0xFFC0341F),
     success = Color(0xFF2E7D52),
+
+    glassFaceHigh = Color(0xFFFFFFFF),
+    glassFace = Color(0xFFFAF6F1),
+    glassEdge = Color(0xFFFFFFFF),
+    glassEdgeLow = Color(0xFFE2DAD0),
+    glassGlow = Color(0xFFD2560F),
+    glassShadow = Color(0xFF4A3B2E),
 
     scrim = Color(0x33000000),
     isLight = true,
@@ -102,6 +123,13 @@ val EchoDarkColors = EchoColors(
 
     danger = Color(0xFFE96A55),
     success = Color(0xFF5DBA88),
+
+    glassFaceHigh = Color(0xFF2C2926),
+    glassFace = Color(0xFF201E1C),
+    glassEdge = Color(0xFF4A433B),
+    glassEdgeLow = Color(0xFF191715),
+    glassGlow = Color(0xFFFF8A4C),
+    glassShadow = Color(0xFF000000),
 
     scrim = Color(0x66000000),
     isLight = false,

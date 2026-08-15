@@ -47,6 +47,10 @@ object EchoDimens {
     val touchTarget = 48.dp
     val composerMinHeight = 46.dp
     val reactionChipHeight = 26.dp
+
+    val glassCorner = 22.dp
+    val glassCardMargin = 12.dp
+    val glassCardGap = 7.dp
 }
 
 @Composable
