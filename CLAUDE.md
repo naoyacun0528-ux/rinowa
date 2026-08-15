@@ -127,6 +127,13 @@ Before injecting taps, screenshot first and confirm Echo is actually on screen. 
 coordinates from an earlier run once landed a tap in the owner's private Instagram
 conversation, because they had picked the phone up in the meantime.
 
+## Delivering a build
+
+After every `tools/release.ps1` run, **attach the files in the conversation** — the
+release APK, the debug APK, the source zip, and the release notes. Writing the path and
+expecting them to be fetched from disk is not delivery; the owner asked for the files
+themselves, every time.
+
 ## Signing
 
 The release keystore lives outside the repo at `C:\dev\echo-keys\echo-release.jks`, with
