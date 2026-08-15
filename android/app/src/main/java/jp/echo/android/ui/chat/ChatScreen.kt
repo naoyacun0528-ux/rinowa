@@ -1,6 +1,8 @@
 package jp.echo.android.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,6 +51,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -60,7 +64,10 @@ import jp.echo.android.core.designsystem.EchoDimens
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoSwipe
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.FrostedBar
+import jp.echo.android.core.designsystem.backdropSource
 import jp.echo.android.core.designsystem.preferHighFrameRate
+import jp.echo.android.core.designsystem.rememberBackdropState
 import jp.echo.android.core.haptics.HapticToken
 import jp.echo.android.core.haptics.LocalEchoHaptics
 import jp.echo.android.model.Conversation
@@ -131,6 +138,34 @@ fun ChatScreen(
     var pickerEngaged by remember { mutableStateOf(false) }
 
     val geometry = rememberPickerGeometry()
+
+    // ---- frosted bars ----------------------------------------------------------
+    val backdrop = rememberBackdropState()
+    var topBarHeight by remember { mutableStateOf(0.dp) }
+    var bottomBarHeight by remember { mutableStateOf(0.dp) }
+
+    // Read during the bars' drawing, not here: reading scroll position in the composable
+    // body would recompose the entire screen on every frame of a fling.
+    val backdropInvalidation: () -> Unit = {
+        listState.firstVisibleItemIndex
+        listState.firstVisibleItemScrollOffset
+        messages.size
+    }
+
+    // Focus is pulled in and out rather than switched, so stopping a fling does not snap
+    // the blur into place. Capturing continues until the blur has finished leaving.
+    val frost = remember { Animatable(1f) }
+    var capturingBackdrop by remember { mutableStateOf(true) }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            frost.animateTo(0f, tween(130, easing = EchoMotion.exitEasing))
+            capturingBackdrop = false
+        } else {
+            capturingBackdrop = true
+            frost.animateTo(1f, tween(280, easing = EchoMotion.standardEasing))
+        }
+    }
+    val frostAmount: () -> Float = { frost.value }
 
     /**
      * One reaction per person.
@@ -392,28 +427,24 @@ fun ChatScreen(
             .fillMaxSize()
             .background(colors.background),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            ChatTopBar(
-                conversation = conversation,
-                onBack = {
-                    haptics.perform(HapticToken.Navigation)
-                    onBack()
-                },
-            )
-
-            LazyColumn(
-                state = listState,
-                reverseLayout = true,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    // Top rate while the thread is actually moving, and only then.
-                    .preferHighFrameRate(listState.isScrollInProgress),
-                contentPadding = PaddingValues(
-                    horizontal = EchoDimens.screenPadding,
-                    vertical = 8.dp,
-                ),
-            ) {
+        // The thread fills the screen and runs underneath both bars — that is what gives
+        // the bars something worth frosting. contentPadding keeps its ends reachable.
+        LazyColumn(
+            state = listState,
+            reverseLayout = true,
+            modifier = Modifier
+                .fillMaxSize()
+                // Top rate while the thread is actually moving, and only then.
+                .preferHighFrameRate(listState.isScrollInProgress)
+                // The picker is always frosted, so keep capturing while it is open.
+                .backdropSource(backdrop, capture = capturingBackdrop || picker != null),
+            contentPadding = PaddingValues(
+                start = EchoDimens.screenPadding,
+                end = EchoDimens.screenPadding,
+                top = topBarHeight + 8.dp,
+                bottom = bottomBarHeight + 8.dp,
+            ),
+        ) {
                 items(chatItems.asReversed(), key = { it.message.id }) { item ->
                     val message = item.message
 
@@ -457,6 +488,18 @@ fun ChatScreen(
                 }
             }
 
+        FrostedBar(
+            state = backdrop,
+            tint = colors.barGlassTint,
+            frostAmount = frostAmount,
+            invalidateOn = backdropInvalidation,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .onGloballyPositioned {
+                    bottomBarHeight = with(density) { it.size.height.toDp() }
+                },
+        ) {
             Column(
                 Modifier
                     .navigationBarsPadding()
@@ -493,6 +536,27 @@ fun ChatScreen(
             }
         }
 
+        FrostedBar(
+            state = backdrop,
+            tint = colors.barGlassTint,
+            frostAmount = frostAmount,
+            invalidateOn = backdropInvalidation,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .onGloballyPositioned {
+                    topBarHeight = with(density) { it.size.height.toDp() }
+                },
+        ) {
+            ChatTopBar(
+                conversation = conversation,
+                onBack = {
+                    haptics.perform(HapticToken.Navigation)
+                    onBack()
+                },
+            )
+        }
+
         AnimatedVisibility(
             visible = picker != null,
             enter = fadeIn(),
@@ -520,7 +584,11 @@ fun ChatScreen(
         }
 
         picker?.let { state ->
-            ReactionPickerOverlay(state = state, onSelect = { index -> closePicker(index) })
+            ReactionPickerOverlay(
+                state = state,
+                backdrop = backdrop,
+                onSelect = { index -> closePicker(index) },
+            )
         }
     }
 }
@@ -572,10 +640,10 @@ private fun ChatTopBar(conversation: Conversation, onBack: () -> Unit) {
     val colors = EchoTheme.colors
     val type = EchoTheme.type
 
+    // No background of its own: FrostedBar supplies it.
     Column(
         Modifier
             .fillMaxWidth()
-            .background(colors.background)
             .statusBarsPadding(),
     ) {
         Row(

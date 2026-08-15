@@ -27,8 +27,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import jp.echo.android.core.designsystem.BackdropState
 import jp.echo.android.core.designsystem.EchoMotion
 import jp.echo.android.core.designsystem.EchoTheme
+import jp.echo.android.core.designsystem.FrostedBar
 import jp.echo.android.core.designsystem.preferHighFrameRate
 import jp.echo.android.model.ReactionPalette
 import kotlin.math.roundToInt
@@ -102,24 +104,35 @@ data class ReactionPickerState(
 @Composable
 fun ReactionPickerOverlay(
     state: ReactionPickerState,
+    backdrop: BackdropState,
     onSelect: (Int) -> Unit,
 ) {
     val colors = EchoTheme.colors
+    val pill = RoundedCornerShape(percent = 50)
 
-    Box(
+    // Always frosted. It only ever appears while the thread is still, so the capture
+    // costs nothing that a fling would have needed.
+    FrostedBar(
+        state = backdrop,
+        tint = colors.barGlassTint,
+        shape = pill,
+        blurRadius = 22.dp,
+        frostAmount = { 1f },
+        invalidateOn = { state.highlightedIndex },
         modifier = Modifier
             // On screen only while the finger is choosing, and animating the whole time.
             .preferHighFrameRate(true)
             .offset { IntOffset(state.pillLeftPx.roundToInt(), state.pillTopPx.roundToInt()) }
             .height(ReactionPickerMetrics.height)
             .width(ReactionPickerMetrics.width())
-            .shadow(14.dp, RoundedCornerShape(percent = 50), clip = false)
-            .clip(RoundedCornerShape(percent = 50))
-            .background(colors.surfaceRaised)
-            .padding(horizontal = ReactionPickerMetrics.innerPadding),
-        contentAlignment = Alignment.CenterStart,
+            .shadow(14.dp, pill, clip = false),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(horizontal = ReactionPickerMetrics.innerPadding),
+        ) {
             ReactionPalette.emoji.forEachIndexed { index, emoji ->
                 if (index > 0) Spacer(Modifier.width(ReactionPickerMetrics.itemGap))
                 ReactionPickerItem(

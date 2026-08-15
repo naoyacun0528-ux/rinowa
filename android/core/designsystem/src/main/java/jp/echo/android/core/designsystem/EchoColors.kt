@@ -51,6 +51,8 @@ data class EchoColors(
     val glassEdgeLow: Color,
     val glassGlow: Color,
     val glassShadow: Color,
+    /** Laid over the blurred backdrop on the top and composer bars. */
+    val barGlassTint: Color,
 
     val scrim: Color,
     val isLight: Boolean,
@@ -93,6 +95,7 @@ val EchoLightColors = EchoColors(
     glassEdgeLow = Color(0xFFE2DAD0),
     glassGlow = Color(0xFFD2560F),
     glassShadow = Color(0xFF4A3B2E),
+    barGlassTint = Color(0xB8FFFFFF),
 
     scrim = Color(0x33000000),
     isLight = true,
@@ -130,6 +133,7 @@ val EchoDarkColors = EchoColors(
     glassEdgeLow = Color(0xFF191715),
     glassGlow = Color(0xFFFF8A4C),
     glassShadow = Color(0xFF000000),
+    barGlassTint = Color(0xA6141312),
 
     scrim = Color(0x66000000),
     isLight = false,

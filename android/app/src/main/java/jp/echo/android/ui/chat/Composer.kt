@@ -80,11 +80,9 @@ fun Composer(
     val type = EchoTheme.type
     val canSend = text.isNotBlank()
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(colors.background),
-    ) {
+    // No background: the frosted bar behind it supplies one. Painting an opaque colour
+    // here would sit on top of the blur and hide the very thing it exists to show.
+    Column(modifier = modifier.fillMaxWidth()) {
         AnimatedVisibility(
             visible = replyingTo != null,
             enter = fadeIn() + expandVertically(),
