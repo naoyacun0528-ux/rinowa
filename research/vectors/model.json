@@ -1,0 +1,56 @@
+{
+  "note": "Kotlin と Swift の両方が読む。ここに書いてある文字列は画面に出るものなので、実装ごとに違ったら同じ会話が端末によって違う説明になる。See android/app/src/main/java/blog/nextlab/echo/model/Models.kt.",
+
+  "preview": {
+    "note": "一覧と引用に出す短い代わりの文字列。本文だけは中身がそのまま出る。",
+    "sticker": "スタンプ",
+    "image": "写真",
+    "video": "動画",
+    "voiceCall": "音声通話",
+    "videoCall": "ビデオ通話",
+    "locked": "🔒 暗号化されたメッセージ",
+    "retracted": "送信を取り消しました"
+  },
+
+  "reactionPalette": {
+    "note": "**並びは凍結。** 線の上を通るのは絵文字ではなく番号なので、並べ替えると過去の反応が別のものになる。",
+    "version": 1,
+    "emoji": ["❤️", "😂", "😮", "😢", "👍", "🔥"]
+  },
+
+  "messageStatus": {
+    "note": "序数が線の上を通る。並びは凍結。",
+    "order": ["Sending", "Sent", "Delivered", "Read", "Failed"]
+  },
+
+  "callOutcome": {
+    "note": "スレッドに書く粒度。実装内部の理由よりわざと粗い。",
+    "order": ["Completed", "Missed", "Declined", "Failed"]
+  },
+
+  "stickerLimits": {
+    "maxDimensionPx": 512,
+    "maxBytes": 204800
+  },
+
+  "builtInStickers": {
+    "packId": "pack_builtin_v1",
+    "title": "Rinowa",
+    "version": 1,
+    "entries": [
+      { "id": "st_iine", "fileName": "st_iine.png", "label": "いいね" },
+      { "id": "st_arigato", "fileName": "st_arigato.png", "label": "ありがと" },
+      { "id": "st_ok", "fileName": "st_ok.png", "label": "OK!" },
+      { "id": "st_ukeru", "fileName": "st_ukeru.png", "label": "うける" },
+      { "id": "st_gomen", "fileName": "st_gomen.png", "label": "ごめん" },
+      { "id": "st_tasukaru", "fileName": "st_tasukaru.png", "label": "たすかる" },
+      { "id": "st_otsukare", "fileName": "st_otsukare.png", "label": "おつかれ" },
+      { "id": "st_matteru", "fileName": "st_matteru.png", "label": "まってる" }
+    ]
+  },
+
+  "privacy": {
+    "note": "本文を持つ型は、説明に中身を出さない。docs/PRIVACY_PRINCIPLES.md 防御層3。長さは出してよい（漏れるのは長さだけで、それは封の外からも見える）。",
+    "messageTextDescription": "MessageText(len=%d)"
+  }
+}

@@ -1,0 +1,12 @@
+# 画像は名前に版が入っている（og-2.jpg）。中身が変わることはないので長く持たせる。
+<FilesMatch "\.(jpg|png|webp)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+# ページは書き換える。古い写しを見せない。
+<FilesMatch "\.html$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=60"
+    </IfModule>
+</FilesMatch>

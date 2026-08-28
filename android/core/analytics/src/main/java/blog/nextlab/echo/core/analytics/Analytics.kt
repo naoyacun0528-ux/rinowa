@@ -3,15 +3,15 @@
 import android.util.Log
 
 /**
- * The analytics sink.
+ * 計測の出口。
  *
- * Note what this interface does *not* have: any way to pass free text. There is no
- * `log(name: String, params: Map<String, Any>)` overload, and adding one would defeat
- * the whole design. See docs/PRIVACY_PRINCIPLES.md.
+ * この interface に*無い*ものに注意。自由な文字列を渡す手段がまったく無い。
+ * `log(name: String, params: Map<String, Any>)` のようなものは存在せず、
+ * 足せば設計全体が台無しになる。docs/PRIVACY_PRINCIPLES.md。
  */
 interface Analytics {
 
-    /** When true, nothing is recorded except the opt-out change itself. */
+    /** true の間、記録されるのは「止めた」という変更そのものだけ。 */
     val optedOut: Boolean
 
     fun setOptedOut(optedOut: Boolean)
@@ -21,7 +21,7 @@ interface Analytics {
     fun setUserProperty(property: AnalyticsUserProperty)
 }
 
-/** Prototype 0 default: analytics exists as a contract but sends nothing anywhere. */
+/** Prototype 0 の既定。契約としては存在するが、どこにも送らない。 */
 class NoOpAnalytics : Analytics {
     private var optOut = false
     override val optedOut: Boolean get() = optOut
@@ -31,13 +31,13 @@ class NoOpAnalytics : Analytics {
 }
 
 /**
- * Writes events to logcat during development.
+ * 開発中に logcat へイベントを書く。
  *
- * Safe by construction: the only things it can print are the event name, parameter names,
- * numbers and enum wire names. There is no code path by which a message body could reach
- * this logger, because no such value can be put into an [AnalyticsEvent].
+ * 構造上安全。出せるのはイベント名、項目名、数値、enum の名前だけ。
+ * メッセージの本文がここへ届く経路は無い。そういう値を [AnalyticsEvent] に
+ * 入れられないから。
  */
-class DebugAnalytics(private val tag: String = "EchoAnalytics") : Analytics {
+class DebugAnalytics(private val tag: String = "RinowaAnalytics") : Analytics {
 
     private var optOut = false
     override val optedOut: Boolean get() = optOut

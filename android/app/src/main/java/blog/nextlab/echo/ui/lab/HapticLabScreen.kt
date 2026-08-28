@@ -38,30 +38,30 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import blog.nextlab.echo.core.designsystem.EchoDimens
-import blog.nextlab.echo.core.designsystem.EchoTheme
+import blog.nextlab.echo.core.designsystem.RinowaDimens
+import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.rememberRefreshRateInfo
 import blog.nextlab.echo.core.haptics.HapticIntensity
 import blog.nextlab.echo.core.haptics.HapticTier
 import blog.nextlab.echo.core.haptics.HapticToken
-import blog.nextlab.echo.core.haptics.LocalEchoHaptics
+import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Development surface for judging haptics on a real device.
+ * 触覚を実機で判断するための開発用画面。
  *
- * Nothing here can be evaluated from a desk: a vibration has to be felt. This screen
- * exists so the feedback loop is "feel it -> say what is wrong -> change a number in
- * HapticTokens.kt", which is the workflow described in docs/HAPTIC_DESIGN.md.
+ * ここにあるものは机の上では評価できない。振動は触らないと分からない。
+ * 「触る → どう嫌かを言う → HapticTokens.kt の数字を変える」という往復のために
+ * ある。docs/HAPTIC_DESIGN.md の手順そのもの。
  *
- * Not a product feature. It does not ship past Prototype 0 in this form.
+ * 製品の機能ではない。この形のまま Prototype 0 より先へは出さない。
  */
 @Composable
 fun HapticLabScreen(onBack: () -> Unit) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
-    val haptics = LocalEchoHaptics.current
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
+    val haptics = LocalRinowaHaptics.current
     val scope = rememberCoroutineScope()
     val prefs by haptics.preferences.collectAsState()
     val capabilities = remember { haptics.capabilities }
@@ -80,8 +80,8 @@ fun HapticLabScreen(onBack: () -> Unit) {
                 .weight(1f)
                 .fillMaxWidth(),
             contentPadding = PaddingValues(
-                start = EchoDimens.screenPadding,
-                end = EchoDimens.screenPadding,
+                start = RinowaDimens.screenPadding,
+                end = RinowaDimens.screenPadding,
                 top = 12.dp,
                 bottom = 32.dp,
             ),
@@ -89,20 +89,33 @@ fun HapticLabScreen(onBack: () -> Unit) {
             item { SectionTitle("この端末の対応状況") }
             item {
                 CapabilityCard(
-                    rows = listOf(
-                        "API level" to capabilities.apiLevel.toString(),
-                        "振動子" to if (capabilities.hasVibrator) "あり" else "なし",
-                        "振幅制御" to if (capabilities.hasAmplitudeControl) "あり" else "なし",
-                        "Envelope (API 36)" to if (capabilities.supportsEnvelope) "対応" else "非対応",
-                        "Envelope 最大点数" to capabilities.envelopeMaxPoints.toString(),
-                        "Envelope 点の長さ" to
-                            "${capabilities.envelopeMinPointMs}–${capabilities.envelopeMaxPointMs} ms",
-                        "対応プリミティブ" to
-                            capabilities.supportedPrimitives
-                                .joinToString(", ") { it.name }
-                                .ifEmpty { "なし" },
-                        "既定のTier" to tierLabel(capabilities.bestTier),
-                    ),
+                    rows = buildList {
+                        add("API level" to capabilities.apiLevel.toString())
+                        add("振動子" to if (capabilities.hasVibrator) "あり" else "なし")
+                        add("振幅制御" to if (capabilities.hasAmplitudeControl) "あり" else "なし")
+                        add(
+                            "Envelope (API 36)" to
+                                if (capabilities.supportsEnvelope) "対応" else "非対応",
+                        )
+                        // 意味のあるときだけ出す。この2つは端末が答えないと既定値に
+                        // 落ちるので、「非対応」のすぐ下に「最大点数 16」と出ると、
+                        // 端末が持っていない能力として読めてしまう。
+                        if (capabilities.supportsEnvelope) {
+                            add("Envelope 最大点数" to capabilities.envelopeMaxPoints.toString())
+                            add(
+                                "Envelope 点の長さ" to
+                                    "${capabilities.envelopeMinPointMs}–" +
+                                    "${capabilities.envelopeMaxPointMs} ms",
+                            )
+                        }
+                        add(
+                            "対応プリミティブ" to
+                                capabilities.supportedPrimitives
+                                    .joinToString(", ") { it.name }
+                                    .ifEmpty { "なし" },
+                        )
+                        add("既定のTier" to tierLabel(capabilities.bestTier))
+                    },
                 )
             }
 
@@ -140,6 +153,23 @@ fun HapticLabScreen(onBack: () -> Unit) {
                         }
                     },
                 )
+                // 振幅の調整には、中間の出力で駆動できるモーターが要る。T1 は
+                // createPredefined() を使い、そもそも強さを取らない。どちらも無い端末では
+                // つまみが動いても何も変わらないので、バグに見えるより先にそう言う。
+                val intensityInert = !capabilities.hasAmplitudeControl ||
+                    (forcedTier ?: capabilities.bestTier) == HapticTier.Predefined
+                if (intensityInert) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = if (!capabilities.hasAmplitudeControl) {
+                            "この端末は振幅を制御できないため、OFF 以外の強度差は出ません。"
+                        } else {
+                            "T1 は強さを指定できない方式なので、OFF 以外の強度差は出ません。"
+                        },
+                        style = type.labelSmall,
+                        color = colors.textTertiary,
+                    )
+                }
             }
 
             item { SectionTitle("Tier を固定して比較") }
@@ -174,7 +204,7 @@ fun HapticLabScreen(onBack: () -> Unit) {
                     token = token,
                     resolvedTier = resolved,
                     forced = forcedTier != null,
-                    // Capped: the device could do better, but this token should not.
+                    // 上限で止めている。端末はもっと上を出せるが、この触覚は出すべきでない。
                     capped = forcedTier == null && resolved != capabilities.bestTier,
                     onFire = { haptics.previewToken(token, forcedTier) },
                 )
@@ -250,8 +280,8 @@ private fun TokenRow(
     capped: Boolean,
     onFire: () -> Unit,
 ) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -283,8 +313,8 @@ private fun TokenRow(
 
 @Composable
 private fun ComparisonRow(comparison: Comparison, onPlay: () -> Unit) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -323,8 +353,8 @@ private fun ComparisonRow(comparison: Comparison, onPlay: () -> Unit) {
 
 @Composable
 private fun TierBadge(tier: HapticTier, forced: Boolean, capped: Boolean = false) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(percent = 50))
@@ -358,8 +388,8 @@ private fun <T> SegmentedRow(
     selected: T,
     onSelect: (T) -> Unit,
 ) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -388,8 +418,8 @@ private fun <T> SegmentedRow(
 
 @Composable
 private fun CapabilityCard(rows: List<Pair<String, String>>) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
 
     Column(
         Modifier
@@ -420,8 +450,8 @@ private fun CapabilityCard(rows: List<Pair<String, String>>) {
 
 @Composable
 private fun SectionTitle(text: String) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
     Text(
         text = text,
         style = type.labelSmall.copy(fontWeight = FontWeight.SemiBold),
@@ -432,9 +462,9 @@ private fun SectionTitle(text: String) {
 
 @Composable
 private fun LabTopBar(onBack: () -> Unit) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
-    val haptics = LocalEchoHaptics.current
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
+    val haptics = LocalRinowaHaptics.current
 
     Column(
         Modifier
@@ -450,7 +480,7 @@ private fun LabTopBar(onBack: () -> Unit) {
         ) {
             Box(
                 modifier = Modifier
-                    .size(EchoDimens.touchTarget)
+                    .size(RinowaDimens.touchTarget)
                     .clip(CircleShape)
                     .clickable {
                         haptics.perform(HapticToken.Navigation)
@@ -487,11 +517,12 @@ private fun LabTopBar(onBack: () -> Unit) {
 private fun tokenMeaning(token: HapticToken): String = when (token) {
     HapticToken.Selection -> "選択対象が変わった（極小・連打防止あり）"
     HapticToken.Navigation -> "画面が変わった"
-    HapticToken.SoftConfirm -> "軽い確定（トグル・既読）"
+    HapticToken.SoftConfirm -> "軽い確定（トグル・下書き保存）"
     HapticToken.Send -> "メッセージを送り出した（短く鋭く、余韻なし）"
     HapticToken.Threshold -> "引き返せない境界を超えた（返信スワイプ成立）"
     HapticToken.ThresholdRelease -> "境界より戻した（Threshold の弱い反響）"
     HapticToken.Reaction -> "リアクション確定（わずかに咲く）"
+    HapticToken.ReadReceipt -> "送ったものが読まれた（指以外が起こす唯一の触覚・最も弱い）"
     HapticToken.Success -> "成功（上がる2連）"
     HapticToken.Warning -> "注意（下がる2連）"
     HapticToken.Error -> "失敗（詰まった3連・鈍い）"

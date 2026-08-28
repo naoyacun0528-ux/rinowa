@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    共有のために一時的に書き出すファイルの置き場。
+
+    cacheDir の下だけを公開する。filesDir を公開すると、端末に保持している
+    受信済みの写真すべてが、共有インテント経由で外から取れることになる。
+    共有するのは「いま共有すると押した1枚」だけ。
+-->
+<paths>
+    <cache-path name="shared_photos" path="share/" />
+</paths>

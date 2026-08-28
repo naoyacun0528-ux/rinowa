@@ -6,13 +6,12 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toPersistentList
 
 /**
- * Sticker domain model. See docs/STICKER_ARCHITECTURE.md.
+ * スタンプのモデル。docs/STICKER_ARCHITECTURE.md。
  *
- * The single most important property of this file: **a message references a sticker by
- * [StickerId] and never carries its image.** Embedding image bytes in a message would
- * mean paying for the same picture on every send, would bloat conversation loads, and
- * would entangle attachments with message bodies right where end-to-end encryption will
- * later need them separated.
+ * このファイルで一番大事な性質: **メッセージはスタンプを [StickerId] で参照し、
+ * 画像そのものは運ばない。** 画像のバイト列をメッセージに入れると、同じ絵を送るたびに
+ * 費用を払い、会話の読み込みが重くなり、あとで E2EE が分離を必要とするまさにその場所で
+ * 添付と本文が絡まる。
  */
 @JvmInline
 value class StickerId(val value: String)
@@ -21,11 +20,11 @@ value class StickerId(val value: String)
 value class StickerPackId(val value: String)
 
 /**
- * SHA-256 of the asset bytes, as lowercase hex.
+ * 素材のバイト列の SHA-256（小文字16進）。
  *
- * Used for integrity, cache validation, and identifying identical files. It is **not**
- * a secret and must never be treated as one: knowing a hash grants no access. Access is
- * decided by authentication and storage rules. See docs/STICKER_ARCHITECTURE.md §5.
+ * 完全性の確認、キャッシュの妥当性、同一ファイルの判定に使う。秘密では**なく**、
+ * 秘密として扱ってもいけない。ハッシュを知っていても何の権限も得られない。
+ * 見てよいかを決めるのは認証と保存側のルール。docs/STICKER_ARCHITECTURE.md §5。
  */
 @JvmInline
 value class ContentHash(val value: String) {
@@ -43,8 +42,8 @@ enum class StickerFormat { Webp, Png }
 enum class StickerOrigin { BuiltIn, Custom, Group }
 
 /**
- * No `Public`. Public sharing needs moderation, takedown, and rights handling designed
- * first, so the value does not exist rather than existing and being unused.
+ * `Public` は無い。公開共有には、先に審査・削除対応・権利の扱いを設計する必要がある。
+ * だから値を作って使わずに置くのではなく、値そのものを作らない。
  */
 enum class PackVisibility { Private, Group, Shared }
 
@@ -63,22 +62,22 @@ data class StickerAsset(
 @Immutable
 data class StickerPack(
     val id: StickerPackId,
-    /** Null for the bundled pack, which nobody owns. */
+    /** 同梱セットは誰のものでもないので null。 */
     val ownerId: String?,
     val title: String,
     val visibility: PackVisibility,
-    /** Monotonic, so a client can fetch only what changed. */
+    /** 単調増加。クライアントが変わったぶんだけ取れるように。 */
     val version: Int,
     val stickerIds: ImmutableList<StickerId>,
 )
 
-/** Enforced from Prototype 0 so storage abuse never becomes possible in the first place. */
+/** Prototype 0 から効かせている。保管の乱用が、そもそも起こりえないように。 */
 object StickerLimits {
     const val MAX_DIMENSION_PX = 512
     const val MAX_BYTES = 200 * 1024
 }
 
-/** The pack shipped inside the APK. Images live in `assets/stickers/`. */
+/** APK に同梱したセット。画像は `assets/stickers/` にある。 */
 object BuiltInStickers {
     val packId = StickerPackId("pack_builtin_v1")
 
@@ -98,7 +97,7 @@ object BuiltInStickers {
     val pack = StickerPack(
         id = packId,
         ownerId = null,
-        title = "Echo",
+        title = "Rinowa",
         visibility = PackVisibility.Private,
         version = 1,
         stickerIds = entries.map { it.id }.toPersistentList(),

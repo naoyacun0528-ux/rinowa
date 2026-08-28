@@ -1,0 +1,242 @@
+
+node v26.7.0 · Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz
+trained on 3485 messages · dict32k=32768B dict110k=112640B
+ETX model 6.8KB · KANA8 table 0.9KB
+
+
+### SINGLE  (one message, sent alone — the common case and the hard one)  n=1913
+
+format      codec               B/msg   vs JSON   worse    enc us    dec us     dict
+------------------------------------------------------------------------------------
+EWF         deflate+dict32k      43.0     17.9%       -    174.96     47.73      32K
+EWF+KANA8   deflate+dict32k      47.9     19.9%      0%    178.38     46.30      32K
+EWF+ETX     deflate+dict32k      49.1     20.4%       -    170.25     48.85      32K
+EWF         zstd+dict110k        54.9     22.9%     22%         -         -     110K
+EWF+KANA8   zstd session         56.1     23.3%     80%         -         -        -
+EWF+KANA8   none                 56.4     23.5%       -      4.54      0.01        -
+EWF+KANA8   zstd+dict110k        57.4     23.9%     85%         -         -     110K
+EWF+ETX     zstd session         57.5     23.9%     79%         -         -        -
+EWF+ETX     none                 57.6     24.0%       -      6.97      0.01        -
+EWF+ETX     zstd+dict110k        58.9     24.6%     87%         -         -     110K
+EWF+KANA8   deflate              60.2     25.0%     93%     57.68      8.58        -
+EWF+KANA8   brotli q5            60.3     25.1%     99%     85.03      9.67        -
+EWF+KANA8   brotli q11           60.4     25.1%    100%   1422.77      8.71        -
+EWF+ETX     deflate              61.2     25.5%     91%     60.88      8.47        -
+EWF+ETX     brotli q5            61.6     25.6%     99%     85.03      8.24        -
+EWF+ETX     brotli q11           61.6     25.6%    100%   1466.86      8.75        -
+EWF         zstd session         63.7     26.5%     54%         -         -        -
+EWF+KANA8   zstd L19             64.9     27.0%     97%     43.49     11.06        -
+EWF+KANA8   zstd L3              64.9     27.0%     97%     21.95     11.89        -
+EWF+ETX     zstd L19             66.0     27.5%     97%     42.65     12.14        -
+EWF+ETX     zstd L3              66.0     27.5%     97%     26.61     12.49        -
+JSON        zstd session         71.2     29.6%      1%         -         -        -
+EWF         none                 72.2     30.1%       -      4.95      0.19        -
+EWF         deflate              72.9     30.4%     83%     54.03      9.65        -
+EWF         brotli q11           73.1     30.4%     92%    968.34      9.71        -
+EWF         brotli q5            73.4     30.5%     91%     86.50      9.59        -
+EWF         zstd L19             77.9     32.4%     89%     51.55     12.75        -
+EWF+KANA8   gzip                 78.2     32.5%    100%     59.83      9.36        -
+EWF         zstd L3              78.2     32.6%     89%     26.68     10.86        -
+EWF+ETX     gzip                 79.2     33.0%     99%     60.30      9.79        -
+EWF         gzip                 90.9     37.8%     92%     62.12      9.93        -
+CBOR        deflate+dict32k     176.5     73.5%       -    200.87     46.25      32K
+MessagePack deflate+dict32k     178.0     74.1%       -    193.33     51.51      32K
+JSON        deflate+dict32k     187.9     78.2%       -     79.48     47.83      32K
+CBOR        brotli q11          190.6     79.3%      4%   1209.05     18.65        -
+MessagePack brotli q11          193.3     80.5%      8%   1248.95     19.82        -
+CBOR        brotli q5           194.0     80.7%      2%    139.76     16.92        -
+MessagePack brotli q5           196.7     81.8%     14%    137.07     17.20        -
+JSON        brotli q5           198.9     82.8%       -    149.18     16.56        -
+JSON        brotli q11          199.9     83.2%       -   1806.72     23.69        -
+CBOR        deflate             201.4     83.8%     21%     76.48     11.06        -
+MessagePack deflate             202.8     84.4%     62%     76.49     10.72        -
+JSON        zstd+dict110k       203.2     84.7%      1%         -         -     110K
+MessagePack none                208.4     86.7%       -      4.91      0.01        -
+CBOR        none                209.9     87.4%       -      4.67      0.01        -
+CBOR        zstd L19            210.5     87.6%     76%     73.04     13.92        -
+MessagePack zstd L19            210.6     87.6%     79%     70.96     14.67        -
+MessagePack zstd L3             211.7     88.1%     79%     32.69     13.04        -
+CBOR        zstd L3             212.5     88.5%     78%     31.32     11.72        -
+JSON        deflate             215.4     89.7%       -     33.68      5.40        -
+CBOR        gzip                219.4     91.3%     79%     75.90     12.67        -
+MessagePack gzip                220.8     91.9%     81%     77.64     11.58        -
+JSON        zstd L19            225.9     94.0%      6%     78.27     19.23        -
+JSON        zstd L3             231.7     96.4%     46%     32.51     14.32        -
+JSON        gzip                233.4     97.2%     53%     30.26      5.72        -
+JSON        none                240.3    100.0%       -      1.25      0.03        -
+
+### BURST  (six messages, as a reconnect delivers them)  n=328
+
+format      codec               B/msg   vs JSON   worse    enc us    dec us     dict
+------------------------------------------------------------------------------------
+EWF         deflate+dict32k     212.6     15.2%       -    260.18     53.39      32K
+EWF         zstd+dict110k       214.8     15.4%       -         -         -     110K
+EWF+KANA8   deflate+dict32k     240.6     17.2%       -    220.62     50.85      32K
+EWF+KANA8   zstd session        241.3     17.3%      3%         -         -        -
+EWF+KANA8   zstd+dict110k       244.1     17.5%      2%         -         -     110K
+EWF+ETX     deflate+dict32k     248.3     17.8%       -    267.82     32.25      32K
+EWF+ETX     zstd session        249.3     17.8%      3%         -         -        -
+EWF+ETX     zstd+dict110k       255.9     18.3%      2%         -         -     110K
+EWF         zstd session        274.3     19.6%      2%         -         -        -
+EWF+KANA8   deflate             283.5     20.3%     12%    117.98     10.78        -
+EWF+KANA8   zstd L19            287.4     20.6%     18%    105.64     12.25        -
+EWF+KANA8   brotli q5           288.3     20.6%     21%    183.22     16.02        -
+EWF+KANA8   zstd L3             288.5     20.7%     20%     53.94     13.17        -
+EWF+ETX     deflate             288.6     20.7%      7%    129.95     10.17        -
+EWF+KANA8   brotli q11          289.2     20.7%     41%   3192.50     16.33        -
+EWF+ETX     brotli q11          293.1     21.0%     22%   2956.49     17.78        -
+EWF+ETX     zstd L19            293.3     21.0%     16%    113.95     13.70        -
+EWF+ETX     zstd L3             294.3     21.1%     19%     67.47     12.94        -
+EWF+ETX     brotli q5           296.4     21.2%     25%    195.93     18.36        -
+EWF+KANA8   none                299.9     21.5%       -     20.97      0.09        -
+EWF+KANA8   gzip                301.5     21.6%     61%    110.22     12.26        -
+EWF+ETX     gzip                306.6     22.0%     55%    131.09     11.59        -
+EWF+ETX     none                307.1     22.0%       -     31.29      0.07        -
+EWF         brotli q11          340.5     24.4%      5%   2230.88     24.57        -
+EWF         brotli q5           341.0     24.4%      4%    233.34     22.17        -
+EWF         deflate             346.8     24.8%      4%    110.62     14.09        -
+JSON        zstd session        347.7     24.9%       -         -         -        -
+EWF         zstd L19            351.4     25.2%      5%    127.80     13.15        -
+EWF         zstd L3             355.9     25.5%      7%     52.78     14.35        -
+EWF         gzip                364.8     26.1%     25%    110.63     16.83        -
+EWF         none                392.1     28.1%       -     16.16      0.07        -
+CBOR        deflate+dict32k     476.5     34.1%       -    302.29     61.89      32K
+MessagePack deflate+dict32k     482.4     34.5%       -    285.17     48.09      32K
+JSON        deflate+dict32k     482.7     34.6%       -    291.77     59.05      32K
+JSON        zstd+dict110k       498.0     35.6%      0%         -         -     110K
+JSON        brotli q11          507.6     36.3%       -   4185.64     34.87        -
+CBOR        brotli q11          517.1     37.0%       -   3411.14     35.45        -
+MessagePack brotli q11          528.4     37.8%       -   3378.10     29.31        -
+CBOR        brotli q5           547.7     39.2%      0%    332.20     33.35        -
+MessagePack brotli q5           550.6     39.4%      1%    444.34     24.89        -
+JSON        brotli q5           555.5     39.8%       -    356.63     27.43        -
+CBOR        deflate             573.9     41.1%      1%    133.64     21.97        -
+MessagePack deflate             578.1     41.4%      2%    142.99     23.16        -
+CBOR        zstd L19            581.1     41.6%      2%    518.46     27.15        -
+JSON        deflate             581.9     41.7%       -    138.11     22.65        -
+MessagePack zstd L19            585.7     41.9%      2%    471.96     23.46        -
+JSON        zstd L19            591.8     42.4%       -    630.37     24.03        -
+CBOR        gzip                592.2     42.4%      2%    122.25     28.42        -
+MessagePack gzip                596.3     42.7%      2%    152.07     23.55        -
+CBOR        zstd L3             597.9     42.8%      2%     66.25     16.83        -
+JSON        gzip                600.1     43.0%      2%    144.38     24.57        -
+MessagePack zstd L3             602.2     43.1%      2%     61.33     14.43        -
+JSON        zstd L3             609.2     43.6%      2%     51.32     25.37        -
+MessagePack none               1210.8     86.7%       -     24.36      0.07        -
+CBOR        none               1219.5     87.3%       -     26.81      0.03        -
+JSON        none               1396.5    100.0%       -     15.54      0.10        -
+
+### SYNC  (a whole thread — first open, or a new device)  n=20
+
+format      codec               B/msg   vs JSON   worse    enc us    dec us     dict
+------------------------------------------------------------------------------------
+EWF         zstd+dict110k      3057.4     13.4%       -         -         -     110K
+EWF         deflate+dict32k    3151.9     13.8%       -    818.99     77.36      32K
+EWF+KANA8   deflate+dict32k    3341.7     14.6%       -    816.53     59.55      32K
+EWF+KANA8   zstd+dict110k      3344.8     14.6%       -         -         -     110K
+EWF+KANA8   brotli q11         3415.3     14.9%       -  15207.18     75.01        -
+EWF+KANA8   zstd L19           3434.0     15.0%       -   1214.43     44.20        -
+EWF+KANA8   deflate            3436.3     15.0%       -    509.11     53.02        -
+EWF+KANA8   gzip               3454.3     15.1%       -    510.40     62.34        -
+EWF+KANA8   brotli q5          3454.8     15.1%       -   1213.30     83.48        -
+EWF+KANA8   zstd L3            3469.6     15.2%       -    348.21     36.57        -
+EWF+ETX     deflate+dict32k    3564.7     15.6%       -   1108.78     77.94      32K
+EWF+ETX     zstd+dict110k      3581.3     15.6%       -         -         -     110K
+EWF+ETX     brotli q11         3610.9     15.8%       -  15686.82     86.70        -
+EWF+ETX     deflate            3620.1     15.8%       -    704.50     48.89        -
+EWF+ETX     zstd L19           3622.8     15.8%       -   1486.29     30.02        -
+EWF+ETX     brotli q5          3635.9     15.9%       -   1033.47     61.28        -
+EWF+ETX     gzip               3638.1     15.9%       -    660.03     52.49        -
+EWF+ETX     zstd L3            3682.9     16.1%       -    550.98     19.37        -
+EWF         brotli q11         3795.2     16.6%       -  17889.05     99.91        -
+EWF         zstd L19           3815.2     16.7%       -   2234.14     36.33        -
+EWF         brotli q5          3864.6     16.9%       -   1247.95    100.28        -
+EWF         deflate            3877.5     16.9%       -    512.49     67.55        -
+EWF         gzip               3895.5     17.0%       -    497.04     55.40        -
+EWF         zstd L3            3935.5     17.2%       -    316.15     49.36        -
+JSON        zstd+dict110k      4061.1     17.7%       -         -         -     110K
+JSON        deflate+dict32k    4120.4     18.0%       -   1166.78    118.93      32K
+JSON        brotli q11         4126.1     18.0%       -  57755.92    198.88        -
+CBOR        deflate+dict32k    4159.4     18.2%       -   1369.96    142.26      32K
+MessagePack deflate+dict32k    4174.8     18.2%       -   1472.00    197.26      32K
+CBOR        brotli q11         4318.6     18.9%       -  50711.40    172.57        -
+MessagePack brotli q11         4389.3     19.2%       -  48909.33     88.67        -
+JSON        brotli q5          4571.0     20.0%       -    921.23    154.95        -
+CBOR        brotli q5          4638.8     20.3%       -   1725.29    138.36        -
+JSON        zstd L19           4671.4     20.4%       -  18493.08     50.24        -
+CBOR        zstd L19           4726.8     20.7%       -  13526.07     89.91        -
+MessagePack brotli q5          4728.1     20.7%       -   1903.07    131.56        -
+MessagePack zstd L19           4732.2     20.7%       -  13989.46     77.10        -
+JSON        deflate            4756.3     20.8%       -    991.82     96.81        -
+CBOR        deflate            4811.1     21.0%       -   1125.02     91.62        -
+MessagePack deflate            4815.1     21.0%       -   1029.94    123.21        -
+EWF+KANA8   none               4825.7     21.1%       -    289.89      0.06        -
+JSON        gzip               4883.6     21.3%       -    768.02    109.79        -
+CBOR        gzip               4928.9     21.5%       -   1036.94    101.53        -
+MessagePack gzip               4934.2     21.6%       -    990.70     95.33        -
+EWF+ETX     none               4944.8     21.6%       -    469.41      0.03        -
+JSON        zstd L3            5114.6     22.3%       -    396.56     79.67        -
+CBOR        zstd L3            5148.6     22.5%       -    588.83     63.84        -
+MessagePack zstd L3            5155.4     22.5%       -    503.33     77.03        -
+EWF         none               6337.9     27.7%       -    282.63      0.08        -
+MessagePack none              19844.5     86.7%       -    432.00      0.09        -
+CBOR        none              19985.7     87.3%       -    467.77      0.04        -
+JSON        none              22887.8    100.0%       -    216.28      0.09        -
+
+### BUNDLE  (four conversations in one blob — the Mesh courier shape)  n=5
+
+format      codec               B/msg   vs JSON   worse    enc us    dec us     dict
+------------------------------------------------------------------------------------
+EWF         zstd+dict110k     11396.0     12.4%       -         -         -     110K
+EWF         deflate+dict32k   11806.2     12.9%       -   2607.89    189.24      32K
+EWF+KANA8   zstd+dict110k     11876.0     13.0%       -         -         -     110K
+EWF+KANA8   brotli q11        11886.6     13.0%       -  60719.54    378.79        -
+EWF+KANA8   zstd L19          11953.8     13.1%       -   5816.37     96.72        -
+EWF+KANA8   deflate+dict32k   11954.2     13.1%       -   2694.61    220.59      32K
+EWF+KANA8   brotli q5         12096.2     13.2%       -   2711.75    269.68        -
+EWF+KANA8   deflate           12118.2     13.2%       -   2124.83    141.99        -
+EWF+KANA8   gzip              12136.4     13.3%       -   1952.75    147.92        -
+EWF+KANA8   zstd L3           12174.0     13.3%       -   1785.06     86.20        -
+EWF         zstd L19          12671.2     13.8%       -  11403.67    187.97        -
+EWF         brotli q11        12716.2     13.9%       -  76834.37    384.64        -
+EWF+ETX     brotli q11        12753.2     13.9%       -  58531.57    397.28        -
+EWF+ETX     zstd+dict110k     12770.8     13.9%       -         -         -     110K
+EWF+ETX     zstd L19          12793.2     14.0%       -   6647.44     89.92        -
+EWF+ETX     deflate+dict32k   12846.8     14.0%       -   3551.63    184.88      32K
+EWF+ETX     brotli q5         12898.0     14.1%       -   3388.90    208.38        -
+EWF         brotli q5         12915.0     14.1%       -   3232.09    252.73        -
+EWF+ETX     deflate           12915.6     14.1%       -   2594.03    143.23        -
+EWF+ETX     gzip              12938.2     14.1%       -   2838.81    209.10        -
+EWF+ETX     zstd L3           12980.6     14.2%       -   2027.78     95.00        -
+EWF         deflate           13026.2     14.2%       -   2227.41    223.30        -
+EWF         gzip              13044.4     14.2%       -   2032.39    184.06        -
+EWF         zstd L3           13174.4     14.4%       -   1171.60     95.33        -
+JSON        brotli q11        14085.8     15.4%       - 234408.69    526.96        -
+JSON        zstd+dict110k     14565.4     15.9%       -         -         -     110K
+CBOR        brotli q11        14625.8     16.0%       - 223989.86    523.82        -
+MessagePack brotli q11        14815.4     16.2%       - 215014.27    334.98        -
+JSON        zstd L19          15346.0     16.8%       -  85072.25    249.34        -
+JSON        brotli q5         15350.8     16.8%       -   3887.80    444.68        -
+CBOR        brotli q5         15552.6     17.0%       -   4705.15    491.05        -
+CBOR        zstd L19          15583.8     17.0%       -  65227.11    214.99        -
+MessagePack zstd L19          15608.6     17.0%       -  66403.06    238.54        -
+JSON        deflate+dict32k   15786.4     17.2%       -   4645.40    300.73      32K
+CBOR        deflate+dict32k   15822.2     17.3%       -   5552.15    221.52      32K
+MessagePack deflate+dict32k   15833.2     17.3%       -   5390.56    295.01      32K
+MessagePack brotli q5         15974.0     17.4%       -   4060.07    371.33        -
+JSON        deflate           16493.0     18.0%       -   4611.84    264.75        -
+CBOR        deflate           16604.6     18.1%       -   5504.01    302.29        -
+MessagePack deflate           16612.6     18.1%       -   5227.73    447.13        -
+JSON        gzip              17222.2     18.8%       -   2984.65    370.33        -
+CBOR        gzip              17286.8     18.9%       -   4231.85    353.55        -
+MessagePack gzip              17308.0     18.9%       -   3246.10    332.90        -
+JSON        zstd L3           17402.2     19.0%       -   1504.87    198.56        -
+CBOR        zstd L3           17663.0     19.3%       -   1984.15    228.57        -
+MessagePack zstd L3           17691.4     19.3%       -   2442.17    243.33        -
+EWF+KANA8   none              19302.8     21.1%       -   1231.40      0.11        -
+EWF+ETX     none              19779.0     21.6%       -   1794.41      0.11        -
+EWF         none              25351.8     27.7%       -    997.90      0.11        -
+MessagePack none              79378.0     86.7%       -   1225.46      0.08        -
+CBOR        none              79942.6     87.3%       -   1925.66      0.13        -
+JSON        none              91551.4    100.0%       -   1019.68      0.16        -
+

@@ -1,0 +1,15 @@
+{
+  "name": "echo-wire-research",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Research harness for Echo's wire format and compression. Not shipped.",
+  "type": "commonjs",
+  "scripts": {
+    "bench": "node bench.js",
+    "verify": "node verify.js"
+  },
+  "dependencies": {
+    "cbor-x": "^1.6.5",
+    "msgpackr": "^2.0.5"
+  }
+}

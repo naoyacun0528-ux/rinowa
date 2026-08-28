@@ -18,7 +18,7 @@ Firebase CLI で自動化できる範囲は自動化しました。**残りは3�
 使ったコマンド（記録として）:
 
 ```bash
-firebase apps:create ANDROID "Echo" --package-name blog.nextlab.echo --project echo-cfe37
+firebase apps:create ANDROID "Rinowa" --package-name blog.nextlab.echo --project echo-cfe37
 firebase apps:android:sha:create <appId> <sha> --project echo-cfe37
 firebase apps:sdkconfig ANDROID <appId> --project echo-cfe37
 ```
@@ -58,8 +58,8 @@ blog.nextlab.echo.debug  1:321506749950:android:6cf4716d2c1d5e706764af
 
 8. もう一度 **「新しいプロバイダを追加」→「Google」**
 9. トグルを **ON**
-10. **「プロジェクトの公開名」** に `Echo` と入力
-    → サインイン画面に「Echo にログイン」と出る名前です
+10. **「プロジェクトの公開名」** に `Rinowa` と入力
+    → サインイン画面に「Rinowa にログイン」と出る名前です
 11. **「プロジェクトのサポートメール」** で自分のアドレスを選ぶ（必須）
 12. **「保存」**
 
@@ -82,7 +82,7 @@ blog.nextlab.echo.debug  1:321506749950:android:6cf4716d2c1d5e706764af
 
 > **Enterprise を選ばないでください。** あれは MongoDB 互換 API の系統で、用途が違います。
 > CLI のヘルプにも `--mongodb-compatible-data-access` は enterprise 専用と書かれています。
-> Echo は Firebase の Android SDK をそのまま使うため Standard が前提の道であり、
+> Rinowa は Firebase の Android SDK をそのまま使うため Standard が前提の道であり、
 > Security Rules もオフライン永続化も Standard を想定した仕組みです。
 > CLI の既定値も `standard` です。
 

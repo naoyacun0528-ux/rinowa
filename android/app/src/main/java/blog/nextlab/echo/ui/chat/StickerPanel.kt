@@ -30,8 +30,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import blog.nextlab.echo.core.designsystem.EchoMotion
-import blog.nextlab.echo.core.designsystem.EchoTheme
+import blog.nextlab.echo.core.designsystem.RinowaMotion
+import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.data.LocalStickerStore
 import blog.nextlab.echo.model.BuiltInStickers
 import blog.nextlab.echo.model.StickerId
@@ -39,10 +39,9 @@ import blog.nextlab.echo.model.StickerId
 private val panelHeight = 268.dp
 
 /**
- * The sticker tray.
+ * スタンプの引き出し。
  *
- * Tapping sends immediately rather than selecting-then-confirming. A sticker is a single
- * expressive act; making it two taps turns it into a form.
+ * 押したら選択ではなく即送信。スタンプは1回の表現で、2タップにするとフォームになる。
  */
 @Composable
 fun StickerPanel(
@@ -51,8 +50,8 @@ fun StickerPanel(
     onBrowsed: (visibleIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
     val gridState = rememberLazyGridState()
     val ids = remember { BuiltInStickers.pack.stickerIds }
 
@@ -104,7 +103,7 @@ private fun StickerCell(
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.86f else 1f,
-        animationSpec = EchoMotion.commitSpring(),
+        animationSpec = RinowaMotion.commitSpring(),
         label = "stickerPress",
     )
 
@@ -135,10 +134,10 @@ private fun StickerCell(
 }
 
 /**
- * Draws a sticker from the local store, or a placeholder on a miss.
+ * 端末の置き場からスタンプを描く。無ければ仮の表示。
  *
- * A miss must never block: the conversation keeps scrolling and the gap fills in later.
- * In Prototype 0 there is no remote, so a miss can only mean a corrupted install.
+ * 無くても止めてはいけない。会話はスクロールし続け、あとから埋まる。
+ * Prototype 0 では取得先が無いので、無いということは壊れたインストールを意味する。
  */
 @Composable
 fun StickerImage(
@@ -146,9 +145,9 @@ fun StickerImage(
     id: StickerId,
     modifier: Modifier = Modifier,
 ) {
-    val colors = EchoTheme.colors
+    val colors = RinowaTheme.colors
     val bitmap = remember(id) { store.image(id) }
-    // Screen readers get the sticker's word rather than "image".
+    // 読み上げには「画像」ではなくスタンプの言葉を渡す。
     val label = remember(id) { BuiltInStickers.entries.firstOrNull { it.id == id }?.label }
 
     if (bitmap != null) {
@@ -163,7 +162,7 @@ fun StickerImage(
             modifier = modifier.background(colors.outlineSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = "…", style = EchoTheme.type.label, color = colors.textTertiary)
+            Text(text = "…", style = RinowaTheme.type.label, color = colors.textTertiary)
         }
     }
 }

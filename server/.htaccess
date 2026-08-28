@@ -1,0 +1,5 @@
+# Rinowa の push 窓口。ここは一覧も閲覧もできない。
+Options -Indexes
+<FilesMatch "\.(json|txt|log)$">
+    Require all denied
+</FilesMatch>

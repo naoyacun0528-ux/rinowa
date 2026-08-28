@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Yosegi — OGP画像を焼く</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<style>
+  body{margin:0;background:#15181d;color:#C9D2DC;font-family:"Zen Kaku Gothic New",sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:20px;padding:28px;line-height:2}
+  canvas{width:min(100%,760px);border:1px solid #2a3340}
+  a{display:inline-block;color:#07080C;background:#B4D4F7;text-decoration:none;
+    padding:10px 22px;border-radius:4px;font-weight:700}
+  p{margin:0;font-size:14px;max-width:52em;text-align:center}
+</style>
+</head>
+<body>
+
+<canvas id="c" width="1200" height="630"></canvas>
+<a id="save" download="og-5.jpg">保存</a>
+<p>
+  表紙をそのまま 1200×630 に焼いたもの。SNS に貼ったときのカードになります。<br>
+  <b>差し替えたら必ず名前も変えること</b>（og-5.jpg → og-6.jpg）。
+  同じ名前だと、一度読んだ端末は古いほうを出し続けます。
+</p>
+
+<script>
+(async function () {
+  // 実際のページと同じ書体で描く。読み込みを待たないと別の書体で焼ける。
+  await document.fonts.load('800 172px Archivo');
+  await document.fonts.load('700 34px "Zen Kaku Gothic New"');
+  await document.fonts.ready;
+
+  var c = document.getElementById('c'), x = c.getContext('2d');
+  var W = 1200, H = 630;
+
+  x.fillStyle = '#07080C';
+  x.fillRect(0, 0, W, H);
+
+  // 下から立ち上がる光。表紙と同じもの。
+  var g = x.createRadialGradient(W / 2, H + 40, 0, W / 2, H + 40, 760);
+  g.addColorStop(0, 'rgba(132,176,232,.40)');
+  g.addColorStop(.42, 'rgba(132,176,232,.10)');
+  g.addColorStop(1, 'rgba(132,176,232,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, W, H);
+
+  x.strokeStyle = 'rgba(180,212,247,.14)';
+  x.lineWidth = 2;
+  x.strokeRect(1, 1, W - 2, H - 2);
+
+  x.textAlign = 'center';
+  x.textBaseline = 'alphabetic';
+
+  // **グラデーションは字面の実寸に張る。**
+  // 固定の範囲で張ると、g の尾が一番暗い側に当たって背景に溶け、切れて見える。
+  // 正式名称。コード名だけだと、どの系統のものか分からない。
+  x.font = '700 15px Archivo, sans-serif';
+  x.letterSpacing = '7px';
+  x.fillStyle = '#A9B4C0';
+  x.fillText('RINOWA ORIGINAL FORMAT', W / 2 + 4, 182);
+
+  var BASE = 326, TOP = BASE - 125, BOT = BASE + 34;
+  x.font = '800 172px Archivo, sans-serif';
+  x.letterSpacing = '-8px';
+  var wm = x.createLinearGradient(0, TOP, 0, BOT);
+  wm.addColorStop(0, '#FFFFFF');
+  wm.addColorStop(.55, '#DCE9F8');
+  wm.addColorStop(1, '#A9C8EC');
+  x.fillStyle = wm;
+  x.fillText('Yosegi', W / 2, BASE);
+
+  x.font = '700 17px Archivo, sans-serif';
+  x.letterSpacing = '9px';
+  x.fillStyle = '#B4D4F7';
+  x.fillText('VERSION 1', W / 2 + 4, 400);
+
+  x.font = '700 34px "Zen Kaku Gothic New", sans-serif';
+  x.letterSpacing = '0px';
+  x.fillStyle = '#F7F9FB';
+  x.fillText('Rinowa のためだけに、ゼロから設計された。', W / 2, 468);
+
+  x.font = '700 21px "Zen Kaku Gothic New", sans-serif';
+  x.letterSpacing = '3px';
+  x.fillStyle = '#A9B4C0';
+  x.fillText('圧縮せずに 78% データ削減 ／ まばたきの17万分の1', W / 2, 538);
+
+  // PNG だと光のグラデーションだけで 700KB を超える。JPEG なら 50KB 程度。
+  document.getElementById('save').href = c.toDataURL('image/jpeg', 0.92);
+})();
+</script>
+
+</body>
+</html>

@@ -8,11 +8,36 @@ import java.util.Locale
 private const val MINUTE = 60_000L
 private const val HOUR = 60 * MINUTE
 
-/** Clock time shown under a bubble. */
+/** 吹き出しの下に出す時刻。 */
 fun formatClock(timestampMs: Long): String =
     SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(timestampMs))
 
-/** Compact relative time for the conversation list. */
+/**
+ * 長さを 0:07、1:23、12:04 と書く。時刻ではなく経過時間。
+ *
+ * 動画の吹き出し、再生プレイヤー、通話の記録が同じ形で出す。以前は同じ数行が
+ * 3か所に別々に置いてあり、片方だけ直せる状態だった。
+ *
+ * 00:07 とは書かない。実際より長く見える。
+ */
+fun formatDuration(ms: Long): String = formatSeconds((ms / 1000).coerceAtLeast(0))
+
+/** 1時間を超えたら 1:02:30。通話は長くなりうる。 */
+fun formatCallDuration(seconds: Int): String = formatSeconds(seconds.coerceAtLeast(0).toLong())
+
+private fun formatSeconds(total: Long): String {
+    val hours = total / 3600
+    val minutes = (total % 3600) / 60
+    val secs = total % 60
+    // 秒は必ず2桁。3:7 は読み違える。
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, secs)
+    } else {
+        "%d:%02d".format(minutes, secs)
+    }
+}
+
+/** 会話一覧用の、短い相対時刻。 */
 fun formatListTime(timestampMs: Long, nowMs: Long = System.currentTimeMillis()): String {
     val delta = nowMs - timestampMs
     return when {
@@ -24,7 +49,7 @@ fun formatListTime(timestampMs: Long, nowMs: Long = System.currentTimeMillis()):
     }
 }
 
-/** Date separator between days in a thread. */
+/** スレッドの中で日付が変わる位置に置く区切り。 */
 fun formatDaySeparator(timestampMs: Long, nowMs: Long = System.currentTimeMillis()): String = when {
     isSameDay(timestampMs, nowMs) -> "今日"
     isYesterday(timestampMs, nowMs) -> "昨日"

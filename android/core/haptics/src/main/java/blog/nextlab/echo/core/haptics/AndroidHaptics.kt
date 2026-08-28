@@ -16,12 +16,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Android implementation of the haptic design system.
+ * 触覚設計の Android 実装。
  *
- * Walks the tier ladder described in docs/HAPTIC_DESIGN.md, starting from whatever this
- * device actually supports and stepping down whenever an effect cannot be built or played.
+ * docs/HAPTIC_DESIGN.md の段階の梯子を、この端末が実際に対応している段から始めて
+ * 下りていく。効果を組めない、または再生できないたびに1段下げる。
  */
-class AndroidHaptics(context: Context) : EchoHaptics {
+class AndroidHaptics(context: Context) : RinowaHaptics {
 
     private val vibrator: Vibrator? = systemVibrator(context.applicationContext)
     private val powerManager: PowerManager? =
@@ -40,9 +40,9 @@ class AndroidHaptics(context: Context) : EchoHaptics {
     private var inForeground: Boolean = true
 
     /**
-     * Set when a tier throws at runtime. Some devices advertise support and then reject
-     * the effect; when that happens we stop trying that tier for the rest of the session
-     * rather than failing silently on every touch.
+     * 実行時にその段が例外を投げたら入る。対応していると名乗っておいて効果を
+     * 拒否する端末があるので、そうなったらそのセッションの間はその段を試さない。
+     * 毎回黙って失敗し続けるよりよい。
      */
     @Volatile
     private var degradedTo: HapticTier? = null
@@ -65,11 +65,20 @@ class AndroidHaptics(context: Context) : EchoHaptics {
         emit(token, tierFor(token), _preferences.value.effectiveScale)
     }
 
+    override fun performProgress(token: HapticToken, intensity: Float) {
+        // 連射制限はかけない（interface を参照）が、黙る理由が他にあるならそれは効く。
+        if (isSuppressed(token, respectThrottle = false)) {
+            suppressedCount.incrementAndGet()
+            return
+        }
+        tokenCounts.getOrPut(token) { AtomicInteger(0) }.incrementAndGet()
+        emit(token, tierFor(token), _preferences.value.effectiveScale * intensity.coerceIn(0f, 1f))
+    }
+
     override fun previewToken(token: HapticToken, forceTier: HapticTier?) {
         if (vibrator == null || capabilities.bestTier == HapticTier.None) return
-        // The Lab intentionally bypasses the throttle and the foreground check, but still
-        // respects an explicit "off", because silently vibrating after the user turned
-        // haptics off would be a bug the user cannot see.
+        // Lab は連射制限も前面判定も意図的に飛ばすが、明示的な「切」は尊重する。
+        // 切ったあとに黙って振動するのは、利用者からは見えないバグ。
         val prefs = _preferences.value
         if (!prefs.enabled) return
         val scale = prefs.intensity.scale.coerceAtLeast(HapticIntensity.Subtle.scale)
@@ -79,8 +88,8 @@ class AndroidHaptics(context: Context) : EchoHaptics {
     override fun tierFor(token: HapticToken): HapticTier {
         val spec = HapticTokens[token]
         val available = degradedTo ?: capabilities.bestTier
-        // Larger ordinal == lower tier, so this takes whichever is lower: what the device
-        // can do, or what this token should be allowed to do.
+        // ordinal が大きいほど下の段なので、端末ができることと、この触覚に許した
+        // 上限の、低いほうを取る。
         var tier = if (spec.preferredMaxTier.ordinal > available.ordinal) {
             spec.preferredMaxTier
         } else {
@@ -97,6 +106,16 @@ class AndroidHaptics(context: Context) : EchoHaptics {
             !spec.primitives.steps.all { it.primitive in capabilities.supportedPrimitives }
         ) {
             tier = HapticTier.Predefined
+        }
+        // 入切のパターンを持つ触覚は、モーターが強さを変えられないときは既定効果より
+        // そちらを選ぶ。その状況では複数の触覚が同じ既定効果に潰れ、区別できるのが
+        // 長さだけになるため。HapticSpec.onOff を参照。
+        if (tier == HapticTier.Predefined &&
+            !capabilities.hasAmplitudeControl &&
+            spec.onOff != null &&
+            capabilities.apiLevel >= Build.VERSION_CODES.O
+        ) {
+            tier = HapticTier.Waveform
         }
         if (tier == HapticTier.Predefined && spec.predefined !in capabilities.supportedPredefined) {
             tier = if (capabilities.apiLevel >= Build.VERSION_CODES.O) {
@@ -122,7 +141,7 @@ class AndroidHaptics(context: Context) : EchoHaptics {
         suppressedCount.set(0)
     }
 
-    // ---------------------------------------------------------------- suppression
+    // ---------------------------------------------------------------- 抑制
 
     private fun isSuppressed(token: HapticToken, respectThrottle: Boolean): Boolean {
         if (vibrator == null || capabilities.bestTier == HapticTier.None) return true
@@ -131,7 +150,7 @@ class AndroidHaptics(context: Context) : EchoHaptics {
         val prefs = _preferences.value
         if (!prefs.enabled || prefs.intensity == HapticIntensity.Off) return true
 
-        // Battery saver: match the device's own expectation rather than fighting it.
+        // バッテリーセーバー。端末側の期待に逆らわず合わせる。
         if (powerManager?.isPowerSaveMode == true) return true
 
         if (respectThrottle) {
@@ -144,7 +163,7 @@ class AndroidHaptics(context: Context) : EchoHaptics {
         return false
     }
 
-    // ---------------------------------------------------------------- emission
+    // ---------------------------------------------------------------- 発火
 
     private fun emit(token: HapticToken, startTier: HapticTier, scale: Float) {
         val spec = HapticTokens[token]
@@ -154,13 +173,13 @@ class AndroidHaptics(context: Context) : EchoHaptics {
             val current = tier
             val played = runCatching { play(spec, current, scale) }.getOrElse { false }
             if (played) return
-            // This tier claimed support but did not work. Do not try it again this session.
+            // 対応を名乗ったのに動かなかった段。このセッションではもう試さない。
             degradedTo = current.next
             tier = current.next
         }
     }
 
-    /** @return true when an effect was actually dispatched. */
+    /** @return 実際に効果を送れたら true。 */
     private fun play(spec: HapticSpec, tier: HapticTier, scale: Float): Boolean {
         val v = vibrator ?: return false
         val api = Build.VERSION.SDK_INT
@@ -196,8 +215,8 @@ class AndroidHaptics(context: Context) : EchoHaptics {
 
             HapticTier.Predefined -> {
                 if (api < Build.VERSION_CODES.Q) return false
-                // createPredefined() has no scale parameter, so the user's intensity
-                // setting cannot be honoured at this tier. Documented, not silently wrong.
+                // createPredefined() には強さの引数が無いので、この段では利用者の
+                // 強度設定を反映できない。黙って違えるのではなく、そう書いておく。
                 val effect = runCatching {
                     VibrationEffect.createPredefined(spec.predefined.platformId)
                 }.getOrNull() ?: return false
@@ -207,7 +226,14 @@ class AndroidHaptics(context: Context) : EchoHaptics {
 
             HapticTier.Waveform -> {
                 if (api < Build.VERSION_CODES.O) return false
-                val effect = buildWaveform(spec.waveform, scale) ?: return false
+                // モーターに中間が無ければ入切のパターン、あれば振幅の形のほう。
+                // どちらも波形で、違うのは数字だけ。
+                val shape = if (capabilities.hasAmplitudeControl) {
+                    spec.waveform
+                } else {
+                    spec.onOff ?: spec.waveform
+                }
+                val effect = buildWaveform(shape, scale) ?: return false
                 dispatch(v, effect)
                 true
             }
@@ -224,9 +250,9 @@ class AndroidHaptics(context: Context) : EchoHaptics {
 
     private fun dispatch(v: Vibrator, effect: VibrationEffect) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // USAGE_TOUCH makes the OS treat this as touch feedback, so the user's own
-            // haptics setting and Do Not Disturb are respected. Without it, some devices
-            // classify our vibrations as notifications and play them when they should not.
+                // USAGE_TOUCH にすると OS がタッチのフィードバックとして扱い、
+                // 利用者の触覚設定とサイレントが尊重される。付けないと、端末によっては
+                // 通知の振動として分類され、鳴るべきでないときに鳴る。
             v.vibrate(effect, TOUCH_ATTRIBUTES)
         } else {
             @Suppress("DEPRECATION")
@@ -234,7 +260,7 @@ class AndroidHaptics(context: Context) : EchoHaptics {
         }
     }
 
-    // ---------------------------------------------------------------- builders
+    // ---------------------------------------------------------------- 組み立て
 
     @RequiresApi(36)
     private fun buildEnvelope(spec: EnvelopeSpec, scale: Float): VibrationEffect? = runCatching {
@@ -244,7 +270,7 @@ class AndroidHaptics(context: Context) : EchoHaptics {
             points = points.take(capabilities.envelopeMaxPoints)
         }
 
-        // Clamp each segment to what the device accepts, and stop before the total limit.
+        // 各区間を端末が受け付ける範囲に丸め、合計の上限より前で止める。
         val clamped = ArrayList<EnvelopePoint>(points.size)
         var total = 0L
         for (point in points) {
@@ -256,8 +282,8 @@ class AndroidHaptics(context: Context) : EchoHaptics {
         }
         if (clamped.isEmpty()) return@runCatching null
 
-        // Truncation may have removed the release, and an envelope that does not return to
-        // zero is rejected outright.
+        // 切り詰めで解放部分が落ちていることがある。0 に戻らないエンベロープは
+        // そのまま拒否される。
         if (clamped.last().intensity != 0f) {
             clamped[clamped.lastIndex] = clamped.last().copy(intensity = 0f)
         }

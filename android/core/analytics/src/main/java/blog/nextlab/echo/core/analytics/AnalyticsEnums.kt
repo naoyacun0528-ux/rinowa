@@ -1,13 +1,13 @@
 ﻿package blog.nextlab.echo.core.analytics
 
 /**
- * The only way a non-numeric value can reach analytics.
+ * 数値以外の値が計測に届く唯一の道。
  *
- * This interface is **sealed**, so it can only be implemented inside this module.
- * App code therefore cannot invent a new "enum" whose wire name is, say, the body of a
- * message — there is no path from arbitrary text to an analytics parameter.
+ * この interface は **sealed** なので、実装できるのはこのモジュールの中だけ。
+ * アプリ側は、線の上の名前がたとえばメッセージの本文であるような「enum」を
+ * 作れない。任意の文字列から計測の項目へ至る経路が存在しない。
  *
- * See docs/PRIVACY_PRINCIPLES.md ("Enforcement by construction").
+ * docs/PRIVACY_PRINCIPLES.md の「構造で守る」。
  */
 sealed interface AnalyticsEnum {
     val wireName: String
@@ -39,12 +39,11 @@ enum class MessageContentKind(override val wireName: String) : AnalyticsEnum {
 }
 
 /**
- * What sort of sticker was used.
+ * どの種類のスタンプが使われたか。
  *
- * Note what is deliberately absent: there is no parameter anywhere that carries a
- * sticker id. A custom sticker's id points at an asset one person made, so reporting it
- * would let the analytics pipeline reconstruct who created what and sent it to whom.
- * Kind and counts are enough to improve the feature.
+ * わざと無いものに注意。スタンプの id を運ぶ項目はどこにも無い。自作スタンプの id は
+ * 誰かが作った素材を指すので、報告すると、誰が何を作って誰に送ったかを計測側で
+ * 復元できてしまう。機能を良くするには種類と回数で足りる。
  */
 enum class StickerKind(override val wireName: String) : AnalyticsEnum {
     BuiltIn("built_in"),
@@ -104,10 +103,10 @@ enum class VoteDirection(override val wireName: String) : AnalyticsEnum {
 }
 
 /**
- * A parameter value.
+ * 項目の値。
  *
- * There is deliberately no `Text` case. Adding one would be the single change that
- * breaks the privacy guarantee of this module, so it must never be added.
+ * `Text` の場合をわざと作っていない。1つ足すだけで、このモジュールのプライバシーの
+ * 保証が崩れる。絶対に足さないこと。
  */
 sealed class AnalyticsValue {
     data class Num(val value: Long) : AnalyticsValue()
@@ -123,9 +122,9 @@ internal fun Boolean.param() = AnalyticsValue.Flag(this)
 internal fun AnalyticsEnum.param() = AnalyticsValue.Choice(this)
 
 /**
- * Message lengths are reported exactly up to 500 and bucketed above it.
+ * メッセージの長さは500文字までは正確に、それより上はまとめて報告する。
  *
- * An exact length of 4 823 characters is a fingerprint; "5000+" is not.
+ * 4,823文字という正確な長さは指紋になるが、「5000以上」はならない。
  */
 internal fun bucketCharacterCount(count: Int): Int = when {
     count < 500 -> count
@@ -135,7 +134,7 @@ internal fun bucketCharacterCount(count: Int): Int = when {
     else -> 5_000
 }
 
-/** Unread counts are reported as coarse buckets for the same reason. */
+/** 未読の件数も同じ理由で粗い区分にする。 */
 internal fun bucketUnread(count: Int): Int = when {
     count <= 0 -> 0
     count == 1 -> 1

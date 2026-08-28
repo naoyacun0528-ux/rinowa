@@ -1,4 +1,4 @@
-﻿# Echo — working notes for Claude Code
+﻿# Rinowa — working notes for Claude Code
 
 Read [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) and
 **[docs/PRIVACY_PRINCIPLES.md](docs/PRIVACY_PRINCIPLES.md)** before changing anything.
@@ -106,7 +106,7 @@ Attach the gesture to the stationary container and move a child.
 `DebugAnalytics` makes this kind of thing measurable without adding logging:
 
 ```bash
-adb logcat -c && adb shell input swipe 150 1083 560 1083 1200 && adb logcat -d | grep EchoAnalytics
+adb logcat -c && adb shell input swipe 150 1083 560 1083 1200 && adb logcat -d | grep RinowaAnalytics
 ```
 
 Compare `time_to_threshold_ms` against what the geometry predicts. Guessing at gesture bugs
@@ -123,9 +123,25 @@ The lock is `shared-context\device-lock.txt`. Absent means free. **Claim it as
 `claude` tells nobody whose it is. Release it the moment you stop, and verify the
 delete before saying it is released.
 
-Before injecting taps, screenshot first and confirm Echo is actually on screen. Reusing
+Before injecting taps, screenshot first and confirm Rinowa is actually on screen. Reusing
 coordinates from an earlier run once landed a tap in the owner's private Instagram
 conversation, because they had picked the phone up in the meantime.
+
+## Every change ends in outputs/
+
+**Installing to a phone is not shipping.** Bump `versionName` and run
+`tools/release.ps1` for every batch of work, so `outputs/<version>/` holds the release
+APK, the debug APK, the source zip and hand-written release notes.
+
+This was ignored for four days. Everything from 0.17.1 onward — the sealed envelope,
+encrypted media, video, sealed call signalling, backup, the whole viewer rework — went
+straight to two phones over adb and existed **nowhere else**. `outputs/` said 0.17.1,
+and so did STATE.md, which is stamped from the same number. The record of what exists was
+four days behind what existed, and the only reason anybody found out is that the owner
+asked.
+
+A version number that does not move is not "no release yet". It is a wrong answer to
+"what is in this build", given confidently.
 
 ## Delivering a build
 
@@ -147,7 +163,7 @@ glass work, where shadows and translucency sit close together by design.
 ## Refresh rate
 
 Panels run from 1 Hz to 144 Hz and change rate while the app runs. **Never hardcode a
-rate or a frame budget** — derive it from `EchoRefreshRate.read()`. Never drive anything
+rate or a frame budget** — derive it from `RinowaRefreshRate.read()`. Never drive anything
 off a frame count; animations must be time-based so 1 Hz does not stall them and 144 Hz
 does not speed them up.
 

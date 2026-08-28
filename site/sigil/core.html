@@ -1,0 +1,657 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+
+<style>
+  /*
+    **ここには完成した姿しか書かない。動きの規則は1つも無い。**
+
+    公開先のサーバーは HTML の中の CSS を勝手に組み替え、
+    「読み込んだ瞬間に効いていない規則」を落とす。
+    opacity:0 から始める動きはまさにそれに当たり、
+    戻す側の規則だけが消えて**表題と数字が出なくなった**。
+
+    そこで、隠れている初期状態は各要素の style 属性に直接書き、
+    動きは Web Animations で回す。規則を落とされても、
+    実行が遅れても、**壊れ方が「動かないだけ」に収まる。**
+  */
+  :root{
+    --void:#07080C;
+    --rise:#11151D;
+    --white:#F7F9FB;
+    --read:#C9D2DC;   /* 本文。背景に沈ませない */
+    --mute:#A9B4C0;   /* 補助。ここも読める明るさで */
+    --glint:#B4D4F7;
+    --hair:rgba(180,212,247,.30);
+    --hair-soft:rgba(180,212,247,.14);
+
+    --lat:"Archivo",system-ui,sans-serif;
+    --disp:"Zen Kaku Gothic New",'Hiragino Sans','Yu Gothic',sans-serif;
+    --body:"Noto Sans JP",'Hiragino Sans','Yu Gothic',sans-serif;
+  }
+
+  *{box-sizing:border-box}
+
+  body{
+    margin:0;
+    background:var(--void);
+    color:var(--white);
+    font-family:var(--body);
+    font-weight:400;
+    line-height:2;
+    overflow-x:hidden;
+  }
+
+  /* 日本語は語の途中で折らない。折れるのは文節の切れ目だけ。 */
+  .jp{word-break:keep-all;line-break:strict;overflow-wrap:break-word}
+  .jp .u{display:inline-block}
+
+  .stage{
+    min-height:100svh;
+    padding:clamp(96px,14vh,168px) 24px;
+    display:flex;justify-content:center;align-items:center;
+    position:relative;overflow:hidden;
+  }
+  .stage.lift{background:var(--rise)}
+  .inner{
+    width:100%;max-width:750px;
+    display:flex;flex-direction:column;align-items:center;
+    text-align:center;gap:30px;
+  }
+
+  h1,h2,.figure,.sign{margin:0}
+  p{margin:0}
+
+  h2{
+    font-family:var(--disp);
+    font-weight:900;
+    font-size:clamp(28px,5.2vw,48px);
+    line-height:1.42;
+    letter-spacing:-.012em;
+  }
+
+  .say{
+    font-family:var(--body);
+    font-weight:500;
+    font-size:clamp(15px,2vw,17px);
+    line-height:2.1;
+    color:var(--read);
+    max-width:33em;
+    letter-spacing:.014em;
+  }
+  .say b{color:var(--white);font-weight:700}
+
+  .eyebrow{
+    font-family:var(--disp);
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:.3em;
+    color:var(--glint);
+    text-indent:.3em;
+  }
+
+  .ln{display:block;overflow:hidden;padding-bottom:.12em;margin-bottom:-.12em}
+  .li{display:inline-block}
+
+  /* ---------------------------------------------------------------- 大きな数字 */
+  .figwrap{position:relative;display:block;width:100%}
+  .glow{
+    position:absolute;left:50%;top:50%;
+    width:118%;aspect-ratio:2/1;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(ellipse at 50% 50%,rgba(140,182,238,.30),rgba(140,182,238,0) 66%);
+    pointer-events:none;
+  }
+  .figure{
+    position:relative;display:block;
+    font-family:var(--lat);
+    font-weight:800;
+    font-size:clamp(88px,23vw,214px);
+    line-height:.9;
+    letter-spacing:-.045em;
+    font-variant-numeric:tabular-nums lining-nums;
+    background:linear-gradient(174deg,#FFFFFF 2%,#DDE9F8 38%,#8FB4E2 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    padding:0 .03em .08em;
+  }
+  .figure .u{font-size:.32em;letter-spacing:-.005em;margin-left:.03em}
+  .figure .jpu{font-family:var(--disp);font-weight:900;font-size:.42em;letter-spacing:-.01em}
+  .figure .lead{
+    display:block;
+    font-family:var(--disp);font-weight:700;
+    font-size:.15em;letter-spacing:.16em;line-height:1;
+    margin-bottom:.36em;
+    -webkit-text-fill-color:var(--glint);
+  }
+
+  /* ---------------------------------------------------------------- 表紙 */
+  .hero{padding-block:clamp(92px,14vh,152px)}
+  .aura{
+    position:absolute;left:50%;bottom:0;
+    width:min(1240px,196vw);aspect-ratio:2.1/1;
+    transform:translateX(-50%);
+    background:radial-gradient(ellipse at 50% 100%,rgba(132,176,232,.34),rgba(132,176,232,.08) 40%,rgba(132,176,232,0) 70%);
+    pointer-events:none;
+  }
+  .hero .inner{position:relative;gap:36px;justify-content:center}
+
+  .wordmark{
+    font-family:var(--lat);font-weight:800;
+    font-size:clamp(56px,14.5vw,144px);
+    line-height:1;letter-spacing:-.05em;
+    padding-bottom:.12em;margin-bottom:-.12em;
+    background:linear-gradient(170deg,#FFFFFF,#BBD3EE 74%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .ver{
+    font-family:var(--lat);font-weight:700;
+    font-size:clamp(11px,1.8vw,13px);
+    letter-spacing:.52em;text-indent:.52em;
+    color:var(--glint);margin-top:-16px;
+  }
+  .system{
+    font-family:var(--lat);font-weight:700;
+    font-size:clamp(10px,1.6vw,12px);
+    letter-spacing:.34em;text-indent:.34em;
+    color:var(--mute);
+    margin-bottom:-14px;
+  }
+  .promise{font-family:var(--disp);font-weight:700;font-size:clamp(19px,3.5vw,29px);line-height:1.85;letter-spacing:.008em}
+
+  .scroller{
+    position:absolute;bottom:26px;left:50%;
+    width:1px;height:44px;
+    background:linear-gradient(180deg,rgba(180,212,247,0),var(--glint));
+    transform:translateX(-50%);opacity:.75;
+  }
+
+  /* ---------------------------------------------------------------- 4機種 */
+  .rigs{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+    /* 個数で割り切れる列にする。余りが出ると、最後の行に穴が空く。 */
+    gap:1px;width:100%;
+    background:var(--hair-soft);
+    border-block:1px solid var(--hair);
+    margin-top:12px;
+  }
+  .rig{
+    background:var(--void);padding:30px 14px 26px;
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+  }
+  .fine{
+    font-size:12.5px;color:var(--mute);
+    letter-spacing:.04em;line-height:1.9;max-width:30em;
+  }
+  .rigs.n8{grid-template-columns:repeat(4,1fr)}
+  .rigs.n4{grid-template-columns:repeat(4,1fr)}
+  .rigs.n3{grid-template-columns:repeat(3,1fr)}
+  .rigs.n2{grid-template-columns:repeat(2,1fr)}
+  @media (max-width:620px){
+    .rigs.n8,.rigs.n4{grid-template-columns:repeat(2,1fr)}
+    .rigs.n3,.rigs.n2{grid-template-columns:1fr}
+  }
+  .rig .who{font-family:var(--disp);font-size:13.5px;font-weight:700;color:var(--white);line-height:1.6}
+  .rig .spd{
+    font-family:var(--lat);font-weight:800;
+    font-size:33px;line-height:1.15;letter-spacing:-.035em;
+    font-variant-numeric:tabular-nums;
+    background:linear-gradient(168deg,#FFFFFF,#9CBEE8);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .rig .spd .un{font-size:.4em;letter-spacing:0;margin-left:.15em;-webkit-text-fill-color:var(--mute)}
+  .rig .cut{
+    font-family:var(--lat);font-weight:700;
+    font-size:12.5px;letter-spacing:.13em;color:var(--glint);
+    border-top:1px solid var(--hair-soft);
+    margin-top:8px;padding-top:12px;width:100%;
+  }
+  .rigcap{
+    display:flex;justify-content:space-between;width:100%;
+    font-family:var(--disp);font-weight:700;
+    font-size:11.5px;letter-spacing:.2em;color:var(--mute);margin-top:12px;
+  }
+
+
+  .rig .line{
+    font-family:var(--body);font-weight:700;
+    font-size:17px;line-height:1.6;color:var(--white);
+    letter-spacing:.01em;
+  }
+  .rig .line.plain{color:var(--glint)}
+  .rig .mark{
+    font-family:var(--lat);font-weight:800;
+    font-size:26px;line-height:1;color:var(--glint);
+    margin-bottom:2px;
+  }
+  .rig .mark.out{color:var(--mute);opacity:.65}
+
+  /* ---------------------------------------------------------------- まばたきの目盛り */
+  .meter{width:100%;max-width:520px;display:flex;flex-direction:column;gap:24px;margin-top:14px}
+  .bar{display:flex;flex-direction:column;gap:11px;width:100%;text-align:left}
+  .bar .tag{font-family:var(--disp);font-weight:700;font-size:11.5px;letter-spacing:.19em;color:var(--mute)}
+  .bar.mine .tag{color:var(--white)}
+  .bar .track{position:relative;width:100%;height:9px;background:rgba(180,212,247,.11);border-radius:99px;overflow:hidden}
+  .bar .fill{
+    position:absolute;inset:0 auto 0 0;width:100%;border-radius:99px;
+    background:linear-gradient(90deg,#3E639A,#8FB6E6);
+    transform-origin:left;
+  }
+  .bar .fill::after{
+    content:"";position:absolute;right:0;top:0;bottom:0;width:80px;
+    background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.75));
+  }
+  .bar.mine .fill{
+    width:6px;background:#FFFFFF;
+    box-shadow:0 0 20px 4px rgba(200,224,250,.7);
+  }
+  .bar.mine .fill::after{display:none}
+  .bar .note{font-size:12.5px;color:var(--mute);letter-spacing:.05em;line-height:1.75}
+
+  /* ---------------------------------------------------------------- 三つの効き目 */
+  .trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:48px 32px;width:100%;margin-top:18px}
+  .trio > div{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .trio .th{font-family:var(--disp);font-weight:700;font-size:17px;line-height:1.6;color:var(--white)}
+  .trio .d{font-size:14px;color:var(--read);line-height:2.05;max-width:19em;font-weight:400}
+  .rule{width:36px;height:2px;background:var(--glint);border-radius:2px;transform-origin:center}
+
+  /* ---------------------------------------------------------------- 締め */
+  .sign{font-family:var(--disp);font-weight:900;font-size:clamp(25px,5.1vw,44px);line-height:1.62;letter-spacing:-.008em}
+  .sign .n{background:linear-gradient(170deg,#FFFFFF,#9CBEE8);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  footer{
+    padding:0 24px 90px;text-align:center;color:var(--mute);
+    font-family:var(--lat);font-weight:600;
+    font-size:11.5px;letter-spacing:.26em;text-indent:.26em;
+  }
+
+  @media (max-width:520px){
+    .stage{padding:80px 22px}
+    .trio{gap:42px 22px}
+    .inner{gap:26px}
+  }
+</style>
+
+<noscript><style>
+  .h{opacity:1!important;transform:none!important;filter:none!important}
+  .aura{transform:translateX(-50%)!important}
+  .glow{transform:translate(-50%,-50%)!important}
+  .wordmark{letter-spacing:-.05em!important}
+</style></noscript>
+
+<section class="stage hero" id="hero">
+  <div class="aura h" style="opacity:0;transform:translate(-50%,10%) scale(.75)"></div>
+  <div class="inner">
+    <p class="system h" style="opacity:0;transform:translateY(12px)">RINOWA SECURITY SYSTEM</p>
+    <h1 class="wordmark h" style="opacity:0;letter-spacing:.14em;filter:blur(24px)">Sigil</h1>
+    <p class="ver h" style="opacity:0;transform:translateY(14px)">VERSION 1</p>
+    <p class="promise jp rev bare h" style="--i:0;opacity:0">
+      <span class="ln"><span class="li h" style="--i:9;transform:translateY(118%)"><span class="u">開けられるのは、</span></span></span>
+      <span class="ln"><span class="li h" style="--i:11;transform:translateY(118%)"><span class="u">あなたと相手の端末だけ。</span></span></span>
+    </p>
+    <p class="say jp rev h" style="--i:14;opacity:0;transform:translateY(30px)"><span class="u">1通ずつ、封をする。</span></p>
+  </div>
+  <span class="scroller h" style="opacity:0"></span>
+</section>
+
+<section class="stage lift">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">サーバーに残る本文</p>
+    <span class="figwrap rev bare h" style="--i:1;opacity:0">
+      <i class="glow h" style="opacity:0;transform:translate(-50%,-50%) scale(.6)"></i>
+      <span class="figure h" style="opacity:0;transform:translateY(46px) scale(.88);filter:blur(20px)">0<span class="jpu">バイト</span></span>
+    </span>
+    <h2 class="jp rev bare h" style="--i:2;opacity:0">
+      <span class="ln"><span class="li h" style="--i:4;transform:translateY(118%)"><span class="u">画面には出る。</span></span></span>
+      <span class="ln"><span class="li h" style="--i:6;transform:translateY(118%)"><span class="u">サーバーには無い。</span></span></span>
+    </h2>
+    <div class="rigs n2 rev bare h" style="--i:8;opacity:0">
+      <div class="rig h" style="--i:0;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">あなたの画面</span>
+        <span class="line plain">今日は21時に着くよ</span>
+      </div>
+      <div class="rig h" style="--i:1;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">サーバーの中</span>
+        <span class="line">🔒 メッセージ</span>
+      </div>
+    </div>
+    <p class="say jp rev h" style="--i:12;opacity:0;transform:translateY(30px)">
+      <span class="u">同じ1通を、2か所で見たものです。</span>
+    </p>
+  </div>
+</section>
+
+<section class="stage">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">封の対象</p>
+    <h2 class="jp rev bare h" style="--i:1;opacity:0">
+      <span class="ln"><span class="li h" style="--i:3;transform:translateY(118%)"><span class="u">文字だけ、</span><span class="u">ではありません。</span></span></span>
+    </h2>
+    <div class="rigs n8 rev bare h" style="--i:5;opacity:0">
+      <div class="rig h" style="--i:0;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">メッセージ</span></div>
+      <div class="rig h" style="--i:1;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">グループ</span></div>
+      <div class="rig h" style="--i:2;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">写真・動画</span></div>
+      <div class="rig h" style="--i:3;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">サムネイル</span></div>
+      <div class="rig h" style="--i:4;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">スタンプ</span></div>
+      <div class="rig h" style="--i:5;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">音声・ビデオ通話</span></div>
+      <div class="rig h" style="--i:6;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">通話の記録</span></div>
+      <div class="rig h" style="--i:7;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark">✓</span><span class="who">バックアップ</span></div>
+    </div>
+    <p class="say jp rev h" style="--i:14;opacity:0;transform:translateY(30px)">
+      <span class="u"><b>一覧に並ぶ小さな写真まで</b>、</span><span class="u">封の中にあります。</span>
+    </p>
+  </div>
+</section>
+
+<section class="stage lift">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">設計方針</p>
+    <h2 class="jp rev bare h" style="--i:1;opacity:0">
+      <span class="ln"><span class="li h" style="--i:3;transform:translateY(118%)"><span class="u">暗号は、</span></span></span>
+      <span class="ln"><span class="li h" style="--i:5;transform:translateY(118%)"><span class="u">自分で作っていない。</span></span></span>
+    </h2>
+    <p class="say jp rev h" style="--i:7;opacity:0;transform:translateY(30px)">
+      <span class="u"><b>自作の暗号は、</b></span><span class="u"><b>作った本人に破れ方が見えません。</b></span>
+    </p>
+    <div class="rigs n3 rev bare h" style="--i:9;opacity:0">
+      <div class="rig h" style="--i:0;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">鍵の受け渡し</span><span class="line">Olm</span><span class="cut">X3DH + DOUBLE RATCHET</span>
+      </div>
+      <div class="rig h" style="--i:1;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">本文</span><span class="line">Megolm</span><span class="cut">AES-256 + ED25519</span>
+      </div>
+      <div class="rig h" style="--i:2;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">写真・動画</span><span class="line">Tink</span><span class="cut">AES-GCM-HKDF</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="stage">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">鍵の寿命</p>
+    <span class="figwrap rev bare h" style="--i:1;opacity:0">
+      <i class="glow h" style="opacity:0;transform:translate(-50%,-50%) scale(.6)"></i>
+      <span class="figure h" data-count="7" style="opacity:0;transform:translateY(46px) scale(.88);filter:blur(20px)">7<span class="jpu">日</span></span>
+    </span>
+    <h2 class="jp rev bare h" style="--i:2;opacity:0">
+      <span class="ln"><span class="li h" style="--i:4;transform:translateY(118%)"><span class="u">鍵は、</span><span class="u">捨てるためにある。</span></span></span>
+    </h2>
+    <p class="say jp rev h" style="--i:6;opacity:0;transform:translateY(30px)">
+      <span class="u">本文を開く鍵は <b>7日</b>、</span><span class="u">または <b>100通</b>で捨てられます。</span>
+      <span class="u">それより前には、誰も戻れません。</span>
+    </p>
+  </div>
+</section>
+
+<section class="stage lift">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">バックアップ</p>
+    <span class="figwrap rev bare h" style="--i:1;opacity:0">
+      <i class="glow h" style="opacity:0;transform:translate(-50%,-50%) scale(.6)"></i>
+      <span class="figure h" data-count="60" style="opacity:0;transform:translateY(46px) scale(.88);filter:blur(20px)">60<span class="jpu">万回</span></span>
+    </span>
+    <h2 class="jp rev bare h" style="--i:2;opacity:0">
+      <span class="ln"><span class="li h" style="--i:4;transform:translateY(118%)"><span class="u">合鍵は、</span></span></span>
+      <span class="ln"><span class="li h" style="--i:6;transform:translateY(118%)"><span class="u">作りません。</span></span></span>
+    </h2>
+    <p class="say jp rev h" style="--i:8;opacity:0;transform:translateY(30px)">
+      <span class="u">鍵はあなたの暗証番号から、</span><span class="u"><b>60万回かけて</b>作られます。</span>
+    </p>
+    <p class="say jp rev h" style="--i:12;opacity:0;transform:translateY(30px)">
+      <span class="u">そして<b>暗証番号を忘れたら、</b></span><span class="u"><b>二度と開きません。</b></span>
+    </p>
+  </div>
+</section>
+
+<section class="stage">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">確かめる</p>
+    <h2 class="jp rev bare h" style="--i:1;opacity:0">
+      <span class="ln"><span class="li h" style="--i:3;transform:translateY(118%)"><span class="u">信じてください、</span></span></span>
+      <span class="ln"><span class="li h" style="--i:5;transform:translateY(118%)"><span class="u">とは言いません。</span></span></span>
+    </h2>
+    <div class="trio rev bare h" style="--i:7;opacity:0">
+      <div class="cell h" style="--i:0;opacity:0;transform:translateY(30px)">
+        <span class="rule h" style="transform:scaleX(0)"></span>
+        <span class="th jp">指紋を見せる</span>
+        <span class="d jp"><span class="u">その場で並べて、</span><span class="u">見比べられます。</span></span>
+      </div>
+      <div class="cell h" style="--i:1;opacity:0;transform:translateY(30px)">
+        <span class="rule h" style="transform:scaleX(0)"></span>
+        <span class="th jp">端末を全部並べる</span>
+        <span class="d jp"><span class="u">見覚えのないものが</span><span class="u">あれば分かります。</span></span>
+      </div>
+      <div class="cell h" style="--i:2;opacity:0;transform:translateY(30px)">
+        <span class="rule h" style="transform:scaleX(0)"></span>
+        <span class="th jp">変わったら知らせる</span>
+        <span class="d jp"><span class="u">入れ替わったとき、</span><span class="u">黙って続けません。</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="stage lift">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">正直に</p>
+    <h2 class="jp rev bare h" style="--i:1;opacity:0">
+      <span class="ln"><span class="li h" style="--i:3;transform:translateY(118%)"><span class="u">守っていないものを、</span></span></span>
+      <span class="ln"><span class="li h" style="--i:5;transform:translateY(118%)"><span class="u">守っているように</span><span class="u">書かない。</span></span></span>
+    </h2>
+    <p class="say jp rev h" style="--i:7;opacity:0;transform:translateY(30px)">
+      <span class="u">次の3つはサーバーから見えます。</span><span class="u">隠していません。</span>
+    </p>
+    <div class="rigs n3 rev bare h" style="--i:9;opacity:0">
+      <div class="rig h" style="--i:0;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark out">—</span><span class="who">会話の題名</span></div>
+      <div class="rig h" style="--i:1;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark out">—</span><span class="who">誰と誰が、いつ</span></div>
+      <div class="rig h" style="--i:2;opacity:0;transform:translateY(34px) scale(.94)"><span class="mark out">—</span><span class="who">既読の位置</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="stage">
+  <div class="inner">
+    <p class="sign jp rev bare h" style="--i:0;opacity:0">
+      <span class="ln"><span class="li h" style="--i:0;transform:translateY(118%)"><span class="u">1通ずつ、封をする。</span></span></span>
+      <span class="ln"><span class="li h" style="--i:2;transform:translateY(118%)"><span class="u">鍵は7日で捨てる。</span></span></span>
+      <span class="ln"><span class="li n h" style="--i:4;transform:translateY(118%)"><span class="u">それが、Sigil v1。</span></span></span>
+    </p>
+  </div>
+</section>
+<footer>RINOWA SECURITY SYSTEM &nbsp;—&nbsp; SIGIL V1</footer>
+
+<script>
+  /*
+    **最後の砦。** 下の本体が何かの理由で1行も走らなかったとき、
+    隠したままのページを人に見せてしまう。それだけは起こさない。
+    本体とは別の script にしてある。片方が壊れても、もう片方は走る。
+  */
+  window.__rinowaBail = setTimeout(function(){
+    if (window.__rinowaLive) return;   // 本体が動いている。手を出さない。
+    var h = document.querySelectorAll('.h');
+    for (var i = 0; i < h.length; i++){
+      h[i].style.opacity = '';
+      h[i].style.transform = '';
+      h[i].style.filter = '';
+      h[i].style.letterSpacing = '';
+    }
+  }, 8000);
+</script>
+
+<script>
+  (function(){
+    window.__rinowaLive = true;        // 保険に「もう要らない」と伝える
+    var EASE = 'cubic-bezier(.16,.86,.26,1)';
+    var STEP = 78;
+
+    // 初期状態 → 完成した姿。CSS には書かない。
+    var A = {
+      rev:  [{opacity:0, transform:'translateY(30px)'},              {opacity:1, transform:'none'},                        1000],
+      bare: [{opacity:0},                                            {opacity:1},                                           950],
+      li:   [{transform:'translateY(118%)'},                         {transform:'none'},                                   1050],
+      fig:  [{opacity:0, transform:'translateY(46px) scale(.88)', filter:'blur(20px)'},
+                                                                     {opacity:1, transform:'none', filter:'blur(0px)'},    1250],
+      glow: [{opacity:0, transform:'translate(-50%,-50%) scale(.6)'},{opacity:1, transform:'translate(-50%,-50%) scale(1)'},1700],
+      aura: [{opacity:0, transform:'translate(-50%,10%) scale(.75)'},{opacity:1, transform:'translateX(-50%)'},            2400],
+      mark: [{opacity:0, letterSpacing:'.14em', filter:'blur(24px)'},{opacity:1, letterSpacing:'-.05em', filter:'blur(0px)'},1900],
+      sys:  [{opacity:0, transform:'translateY(12px)'},              {opacity:1, transform:'none'},                         900],
+      ver:  [{opacity:0, transform:'translateY(14px)'},              {opacity:1, transform:'none'},                        1000],
+      scr:  [{opacity:0},                                            {opacity:.75},                                        1000],
+      rig:  [{opacity:0, transform:'translateY(34px) scale(.94)'},   {opacity:1, transform:'none'},                        1000],
+      cell: [{opacity:0, transform:'translateY(30px)'},              {opacity:1, transform:'none'},                        1000],
+      rule: [{transform:'scaleX(0)'},                                {transform:'scaleX(1)'},                               800],
+      fill: [{transform:'scaleX(0)'},                                {transform:'scaleX(1)'},                              1600],
+      mine: [{transform:'scaleX(0)'},                                {transform:'scaleX(1)'},                               550]
+    };
+
+    var canAnimate = !!document.body.animate &&
+                     !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 動きが終わったあとに手を離す。**外すのは必ず最後。**
+    function settle(el, keys, anim){
+      for (var i = 0; i < keys.length; i++) el.style[keys[i]] = '';
+      if (anim) { try{ anim.cancel(); }catch(e){} }
+    }
+
+    function play(el, key, delay){
+      var a = A[key];
+      if (!a) return;
+      var keys = Object.keys(a[0]);
+      // **もう見えているなら、触らない。** 何かの拍子に隠しが外れていた場合、
+      // ここで動かすと「一度消えてから出てくる」ように見える。
+      if (!el.style[keys[0]]) return;
+      if (!canAnimate){ settle(el, keys, null); return; }
+      var d = delay || 0;
+      var anim = el.animate([a[0], a[1]], {duration:a[2], delay:d, easing:EASE, fill:'both'});
+      anim.onfinish = function(){ settle(el, keys, anim); };
+      // 時計が進まない環境でも隠れたままにしない。
+      setTimeout(function(){ settle(el, keys, anim); }, d + a[2] + 700);
+    }
+
+    function each(root, sel, fn){ [].forEach.call(root.querySelectorAll(sel), fn); }
+    function idx(el){ return parseFloat(el.style.getPropertyValue('--i')) || 0; }
+
+    // ---------------------------------------------------------------- 数え上げ
+    function countUp(el){
+      var target = parseFloat(el.getAttribute('data-count'));
+      var dec = parseInt(el.getAttribute('data-dec') || '0', 10);
+      var lead = el.querySelector('.lead');
+      var head = lead ? lead.outerHTML : '';
+      var un = el.querySelector('.u, .un, .jpu');
+      var tail = un ? un.outerHTML : '';
+      if (!canAnimate){ return; }
+      var t0 = null, dur = 1250;
+      el.innerHTML = head + (0).toFixed(dec) + tail;
+      requestAnimationFrame(function step(t){
+        if (t0 === null) t0 = t;
+        var p = Math.min(1, (t - t0) / dur);
+        el.innerHTML = head + (target * (1 - Math.pow(1 - p, 3))).toFixed(dec) + tail;
+        if (p < 1) requestAnimationFrame(step);
+      });
+    }
+
+    // ---------------------------------------------------------------- 1枚ぶんの幕開け
+    function wake(el){
+      el.__woke = true;
+      var base = idx(el) * STEP;
+
+      play(el, el.classList.contains('bare') ? 'bare' : 'rev', base);
+
+      each(el, '.li',      function(n){ play(n, 'li',   base + idx(n) * STEP); });
+      each(el, '.glow',    function(n){ play(n, 'glow', base + 120); });
+      each(el, '.figure',  function(n){ play(n, 'fig',  base + 60); });
+      each(el, '.rig',     function(n){ play(n, 'rig',  base + idx(n) * 130); });
+      each(el, '.cell',    function(n){ play(n, 'cell', base + idx(n) * 150); });
+      each(el, '.rule',    function(n){ play(n, 'rule', base + idx(n.parentNode) * 150 + 260); });
+      each(el, '.bar .fill', function(n){
+        var mine = n.parentNode.parentNode.classList.contains('mine');
+        play(n, mine ? 'mine' : 'fill', base + (mine ? 1500 : 250));
+      });
+
+      var nums = [].slice.call(el.querySelectorAll('[data-count]'));
+      nums.forEach(function(n){
+        // カードの中の数字は、そのカードが出てくる順に合わせる。
+        var own = idx(n.parentNode) * 130;
+        setTimeout(function(){ countUp(n); }, base + 340 + own);
+      });
+    }
+
+    var pend = [].slice.call(document.querySelectorAll('.rev'));
+
+    // 同じ画面の中では上から順に。ばらばらに出ると読む順が壊れる。
+    each(document, '.inner', function(inner){
+      [].forEach.call(inner.children, function(el, i){
+        if (el.classList.contains('rev') && !el.style.getPropertyValue('--i')) el.style.setProperty('--i', i);
+      });
+    });
+
+    function sweep(){
+      if (!pend.length) return;
+      var line = innerHeight * 0.86, rest = [];
+      for (var i = 0; i < pend.length; i++){
+        var el = pend[i], r = el.getBoundingClientRect();
+        if (r.top < line && r.bottom > 0) wake(el); else rest.push(el);
+      }
+      pend = rest;
+    }
+
+    // ---------------------------------------------------------------- 表紙
+    var heroDone = false;
+    function openHero(){
+      if (heroDone) return;
+      heroDone = true;
+      var hero = document.getElementById('hero');
+      play(hero.querySelector('.aura'), 'aura', 150);
+      play(hero.querySelector('.system'), 'sys', 250);
+      play(hero.querySelector('.wordmark'), 'mark', 0);
+      play(hero.querySelector('.ver'), 'ver', 700);
+      var scr = hero.querySelector('.scroller');
+      play(scr, 'scr', 1900);
+      if (canAnimate) scr.animate(
+        [{transform:'translateX(-50%) scaleY(.55)', opacity:.35},
+         {transform:'translateX(-50%) scaleY(1)',   opacity:.85},
+         {transform:'translateX(-50%) scaleY(.55)', opacity:.35}],
+        {duration:2600, delay:2900, iterations:Infinity, easing:'ease-in-out'});
+    }
+
+    // ---------------------------------------------------------------- 数字は視差でわずかに遅れて動く
+    var wraps = [].slice.call(document.querySelectorAll('.figwrap'));
+    function parallax(){
+      if (!canAnimate) return;
+      var h = innerHeight;
+      for (var i = 0; i < wraps.length; i++){
+        var w = wraps[i], r = w.getBoundingClientRect();
+        if (r.bottom < -200 || r.top > h + 200) continue;
+        var mid = (r.top + r.height / 2 - h / 2) / h;
+        w.style.transform = 'translate3d(0,' + (mid * -38).toFixed(2) + 'px,0)';
+      }
+    }
+
+    var queued = false, last = 0;
+    function onScroll(){
+      var now = +new Date();
+      if (now - last > 12){ last = now; sweep(); }
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(function(){ queued = false; parallax(); });
+    }
+
+    addEventListener('scroll', onScroll, {passive:true});
+    addEventListener('resize', onScroll);
+    addEventListener('visibilitychange', onScroll);
+
+    if (document.fonts && document.fonts.ready){
+      document.fonts.ready.then(function(){ openHero(); sweep(); parallax(); });
+    }
+    setTimeout(openHero, 900);
+    sweep(); parallax();
+
+    // ここまで来たら、残りは必ずスクロールで開く。最後の砦は要らない。
+    clearTimeout(window.__rinowaBail);
+    setTimeout(function(){
+      each(document, '.h', function(n){
+        n.style.opacity = ''; n.style.transform = '';
+        n.style.filter = ''; n.style.letterSpacing = '';
+      });
+    }, 20000);
+  })();
+</script>

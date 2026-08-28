@@ -1,44 +1,53 @@
 ﻿package blog.nextlab.echo.core.haptics
 
 /**
- * The semantic vocabulary of the app's haptics.
+ * アプリの触覚の語彙。
  *
- * Screens never describe *how* something should feel — they describe *what happened*.
- * Translating meaning into a concrete waveform is this module's job, and its job alone.
+ * 画面は「どう感じさせるか」を書かない。「何が起きたか」を書く。意味を具体的な波形に
+ * 変えるのはこのモジュールの仕事で、ここだけの仕事。
  *
- * See docs/HAPTIC_DESIGN.md for the intent behind each token.
+ * それぞれの狙いは docs/HAPTIC_DESIGN.md。
  */
 enum class HapticToken {
-    /** The selected item changed. Must be tiny — this fires while a finger is moving. */
+    /** 選択が動いた。指が動いている最中に鳴るので、必ず小さく。 */
     Selection,
 
-    /** The screen changed. */
+    /** 画面が変わった。 */
     Navigation,
 
-    /** A light commitment: toggle, mark-as-read, draft saved. */
+    /** 軽い確定。切り替え、既読、下書きの保存。 */
     SoftConfirm,
 
-    /** A message left the device. Short, sharp, no tail. */
+    /** メッセージが端末を出た。短く、鋭く、尾を引かない。 */
     Send,
 
-    /** A point of no return was crossed — e.g. the reply-swipe became valid. Fires once. */
+    /** 戻れない線を越えた（返信スワイプが成立したなど）。1回だけ。 */
     Threshold,
 
-    /** The finger came back below a threshold. Weaker than [Threshold]. Fires once. */
+    /** 指が閾値の内側に戻った。[Threshold] より弱い。1回だけ。 */
     ThresholdRelease,
 
-    /** A reaction was committed. Slight bloom. */
+    /** リアクションが確定した。わずかに膨らむ。 */
     Reaction,
 
-    /** An operation succeeded. Rising pair. */
+    /**
+     * 送ったものが読まれた。
+     *
+     * この一覧で唯一、自分の指が原因ではないもの。だから唯一、鬱陶しくなりうる
+     * （頼んでいない振動が、相手がアプリを開いた拍子に来る）。なのでここで一番
+     * 穏やかにし、強く間引く。HapticTokens の該当箇所を参照。
+     */
+    ReadReceipt,
+
+    /** 何かが成功した。上がる2連。 */
     Success,
 
-    /** Attention needed. Falling pair. */
+    /** 注意が要る。下がる2連。 */
     Warning,
 
-    /** An operation failed. Not "strong" — congested and dull, so it reads as *blocked*. */
+    /** 何かが失敗した。「強い」ではなく、詰まって鈍い。**塞がれた**と読めるように。 */
     Error,
 
-    /** A destructive action was committed. Low, heavy, unmistakably different from everything else. */
+    /** 取り返しのつかない操作が確定した。低く、重く、他のどれとも間違えようがない。 */
     Destructive,
 }

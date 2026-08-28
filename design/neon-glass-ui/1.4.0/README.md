@@ -148,6 +148,6 @@ adb shell dumpsys gfxinfo <applicationId> | grep -E "Janky|gpu percentile"
 
 ## 出どころ
 
-NEON INSTINCT 1.4.0（commit `cd8db32456c630f32798c4c86b9f6ceb7a66c547`）から切り出しました。ClaudeとCodexが同じ課題に独立して取り組み、双方の実装を統合した版です。縁の屈折・鏡面・色収差はシェーダー側、面の光沢とにじみはCanvas側で、別々に作られたものが1つになっています。
+NEON INSTINCT 1.4.0（commit `cd8db32456c630f32798c4c86b9f6ceb7a66c547`）から切り出しました。同じ課題に独立して取り組んだ2つの実装を統合した版です。縁の屈折・鏡面・色収差はシェーダー側、面の光沢とにじみはCanvas側で、別々に作られたものが1つになっています。
 
 検証: `javac`（Android API 37 + androidx.annotation 1.10.0）でコンパイル確認済み。**実機での動作確認はNEON INSTINCTとしてのみ行っており、切り出した状態での実行確認はしていません。** 最初の組み込みで背景が出ない・ガラスが塗りのままになる場合は、上の「2. 背景を置く」を見直してください。

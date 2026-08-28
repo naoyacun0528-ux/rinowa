@@ -1,22 +1,21 @@
 ﻿package blog.nextlab.echo.core.analytics
 
 /**
- * Every analytics event Echo can emit.
+ * Rinowa が出しうる計測イベントの全部。
  *
- * This file is the executable form of docs/ANALYTICS_SCHEMA.md. If the two disagree,
- * one of them is a bug.
+ * このファイルは docs/ANALYTICS_SCHEMA.md の実行可能な形。食い違ったらどちらかがバグ。
  *
- * Constraint that must hold for every event here: **no property may be a String.**
- * Counts are computed on the client and sent as numbers; categories are [AnalyticsEnum].
+ * ここの全イベントが守る制約: **どの項目も String にしない。** 件数は端末側で数えて
+ * 数値で送り、分類は [AnalyticsEnum] にする。
  */
 sealed class AnalyticsEvent {
 
-    /** The wire name of the event. Defined here, never supplied by a caller. */
+    /** 線の上でのイベント名。ここで決め、呼び出し側からは渡させない。 */
     abstract val name: String
 
     abstract fun parameters(): Map<String, AnalyticsValue>
 
-    // ------------------------------------------------------------ lifecycle
+    // ------------------------------------------------------------ ライフサイクル
 
     data class AppOpened(
         val coldStart: Boolean,
@@ -37,8 +36,8 @@ sealed class AnalyticsEvent {
     }
 
     /**
-     * Reported once per active period. Never a stream of individual interaction
-     * timestamps — see docs/ANALYTICS_SCHEMA.md ("Active Time").
+     * 活動していた区間ごとに1回。個々の操作時刻の列は絶対に送らない。
+     * docs/ANALYTICS_SCHEMA.md の「Active Time」。
      */
     data class ActivePeriodEnded(
         val activeMs: Long,
@@ -55,7 +54,7 @@ sealed class AnalyticsEvent {
         )
     }
 
-    // ------------------------------------------------------------ messaging
+    // ------------------------------------------------------------ メッセージ
 
     data class MessageSent(
         val characterCount: Int,
@@ -78,7 +77,7 @@ sealed class AnalyticsEvent {
         )
     }
 
-    /** Kind only. The sticker's id is never reported — see [StickerKind]. */
+    /** 種類だけ。スタンプの id は送らない（[StickerKind] を参照）。 */
     data class StickerSent(
         val stickerKind: StickerKind,
         val conversationType: ConversationType,
@@ -97,7 +96,7 @@ sealed class AnalyticsEvent {
         override fun parameters() = emptyMap<String, AnalyticsValue>()
     }
 
-    /** @param browsedCount how many stickers were scrolled past before choosing or leaving. */
+    /** @param browsedCount 選ぶか離れるまでに、いくつスクロールして通り過ぎたか。 */
     data class StickerPickerDismissed(
         val openMs: Long,
         val browsedCount: Int,
@@ -134,8 +133,8 @@ sealed class AnalyticsEvent {
     }
 
     /**
-     * @param paletteIndex position in the fixed reaction palette. The emoji itself is
-     *   never sent — see docs/ANALYTICS_SCHEMA.md.
+     * @param paletteIndex 固定のリアクションの並びの中の位置。絵文字そのものは
+     *   送らない（docs/ANALYTICS_SCHEMA.md）。
      */
     data class ReactionAdded(
         val paletteIndex: Int,
@@ -155,7 +154,7 @@ sealed class AnalyticsEvent {
         override fun parameters() = mapOf("conversation_type" to conversationType.param())
     }
 
-    // ------------------------------------------------------------ UX
+    // ------------------------------------------------------------ 操作感
 
     data object ReplySwipeStarted : AnalyticsEvent() {
         override val name = "reply_swipe_started"
@@ -169,7 +168,7 @@ sealed class AnalyticsEvent {
         override fun parameters() = mapOf("time_to_threshold_ms" to timeToThresholdMs.param())
     }
 
-    /** @param maxDragRatio 0-100, how far the finger got relative to the threshold. */
+    /** @param maxDragRatio 0〜100。閾値に対して指がどこまで行ったか。 */
     data class ReplySwipeCancelled(
         val maxDragRatio: Int,
         val passedThreshold: Boolean,
@@ -234,7 +233,7 @@ sealed class AnalyticsEvent {
         override fun parameters() = emptyMap<String, AnalyticsValue>()
     }
 
-    /** Text was typed but never sent. Only its length is reported. */
+    /** 打ったが送らなかった文字。長さだけを送る。 */
     data class ComposerAbandoned(
         val characterCount: Int,
         val composeMs: Long,
@@ -269,13 +268,12 @@ sealed class AnalyticsEvent {
         )
     }
 
-    // ------------------------------------------------------------ haptics
+    // ------------------------------------------------------------ 触覚
 
     /**
-     * One aggregated summary per session rather than an event per vibration.
+     * 振動1回ごとではなく、セッションごとに集計を1つ。
      *
-     * Per-fire events would both flood the pipeline and make an individual user's
-     * interaction sequence reconstructible.
+     * 1回ごとに送ると、送信量が増えるうえ、その人の操作の順序を復元できてしまう。
      */
     data class HapticSessionSummary(
         val hapticsEnabled: Boolean,
@@ -315,11 +313,11 @@ sealed class AnalyticsEvent {
         )
     }
 
-    // ------------------------------------------------------------ feedback
+    // ------------------------------------------------------------ フィードバック
 
     /**
-     * @param bodyLength length only. The feedback text itself goes to the feedback
-     *   backend because the user wrote it *for* the developer; it never goes to analytics.
+     * @param bodyLength 長さだけ。フィードバックの文章そのものはフィードバックの
+     *   保存先へ行く（開発者*宛てに*書かれたものだから）。計測には行かない。
      */
     data class FeedbackSubmitted(
         val category: FeedbackCategory,
@@ -341,7 +339,7 @@ sealed class AnalyticsEvent {
         override fun parameters() = mapOf("direction" to direction.param())
     }
 
-    // ------------------------------------------------------------ privacy
+    // ------------------------------------------------------------ プライバシー
 
     data object PrivacyScreenOpened : AnalyticsEvent() {
         override val name = "privacy_screen_opened"
@@ -356,7 +354,7 @@ sealed class AnalyticsEvent {
     }
 }
 
-/** Device- and configuration-level attributes. Never anything identifying a person. */
+/** 端末と設定についての属性。人を特定するものは1つも入れない。 */
 sealed class AnalyticsUserProperty {
     abstract val name: String
     abstract val value: AnalyticsValue
@@ -371,7 +369,7 @@ sealed class AnalyticsUserProperty {
         override val value = apiLevel.param()
     }
 
-    /** Category only. The exact model can single out a person on a rare device. */
+    /** 分類だけ。正確な機種名は、珍しい端末では個人を特定しうる。 */
     data class Device(val category: DeviceCategory) : AnalyticsUserProperty() {
         override val name = "device_category"
         override val value = category.param()

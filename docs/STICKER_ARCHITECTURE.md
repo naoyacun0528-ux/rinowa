@@ -3,7 +3,7 @@
 スタンプは装飾ではなく、**主要なコミュニケーション手段**として扱う。
 
 LINE 等で実証されているとおり、スタンプは文章の代替ではなく独立した表現である。
-RELAY/Echo はこれを廃止せず、リアクションで代替しようともしない。
+RELAY/Rinowa はこれを廃止せず、リアクションで代替しようともしない。
 ただし独自の方向として **「巨大なショップを用意する」のではなく「自分たちで簡単に作れる」** ことを軸に置く。
 
 このドキュメントは [PRIVACY_PRINCIPLES.md](PRIVACY_PRINCIPLES.md) に従属する。
@@ -198,7 +198,7 @@ Pack Manifest（packId, version, stickerIds, 各 contentHash）を取得
 完成物だけを Cloud へ
 ```
 
-**元写真は Echo のサーバーへアップロードしない。**
+**元写真は Rinowa のサーバーへアップロードしない。**
 
 これはコストの話ではなくプライバシーの話である。
 元写真には、スタンプにした部分以外の情報（背景、写り込んだ他人、位置情報を含む Exif）が
@@ -247,7 +247,7 @@ Cloud Storage Security Rules でも重ねて検証する。
 スタンプを単なる画像機能に閉じない。将来的に
 
 ```
-Sticker + Animation + Haptic  =  Echo 独自の Expression
+Sticker + Animation + Haptic  =  Rinowa 独自の Expression
 ```
 
 へ拡張できる設計とする。→ [HAPTIC_DESIGN.md](HAPTIC_DESIGN.md)

@@ -1,5 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Echo mark: concentric ripples. Kept inside the 72dp adaptive-icon safe zone. -->
+<!--
+  The Rinowa mark, on the launcher.
+
+  ## Why this is not the icon it used to be
+
+  It used to be four concentric circles while the status bar showed three open arcs. Two
+  different marks for one app: the thing in the notification shade did not look like the
+  thing on the home screen, which is the one place a mark has to be recognised instantly.
+
+  This is the same drawing as ic_notification, scaled into the adaptive-icon safe zone.
+  A circle is a shape a launcher imposes; it should not also be the mark.
+
+  ## Geometry
+
+  The 24dp notification artwork is placed with X = 54 + (x - 10.6) * 2.8 and
+  Y = 54 + (y - 12) * 2.8, which centres it and leaves the outermost stroke inside the
+  66dp guaranteed-visible area. Any launcher mask — circle, squircle, rounded square —
+  clips background, never the mark.
+
+  The three arcs carry increasing opacity outward-in, which the flat notification mark
+  cannot do: a status bar icon is reduced to its alpha channel, so a graded version of it
+  would silhouette differently. Here the shape is identical and only the weighting differs.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -7,27 +29,29 @@
     android:viewportHeight="108">
 
     <path
-        android:pathData="M54,54 m-28,0 a28,28 0 1,0 56,0 a28,28 0 1,0 -56,0"
+        android:pathData="M44.5,43.4 Q33.8,54 44.5,64.6"
         android:strokeColor="#F2762F"
-        android:strokeAlpha="0.29"
-        android:strokeWidth="3.6"
+        android:strokeAlpha="0.45"
+        android:strokeWidth="5.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:fillColor="#00000000" />
 
     <path
-        android:pathData="M54,54 m-20,0 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0"
+        android:pathData="M59.3,33.8 Q44.5,54 59.3,74.2"
         android:strokeColor="#F2762F"
-        android:strokeAlpha="0.59"
-        android:strokeWidth="4.4"
+        android:strokeAlpha="0.75"
+        android:strokeWidth="5.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:fillColor="#00000000" />
 
     <path
-        android:pathData="M54,54 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0"
+        android:pathData="M74.2,27.1 Q55.1,54 74.2,80.9"
         android:strokeColor="#F2762F"
-        android:strokeWidth="5.2"
+        android:strokeWidth="5.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:fillColor="#00000000" />
-
-    <path
-        android:pathData="M54,54 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
-        android:fillColor="#F2762F" />
 
 </vector>

@@ -14,10 +14,38 @@ datastore = "1.2.1"
 immutable = "0.5.1"
 coroutines = "1.11.0"
 junit = "4.13.2"
+# org.json, as a real implementation. The one on Android is a stub in unit tests: every
+# call throws "not mocked", which would make the envelope format the one thing that cannot
+# be tested off a device — exactly the thing that must not break silently.
+json = "20250107"
+# Tink, for the media store. AES-GCM-HKDF-STREAMING (the STREAM scheme) is a published
+# construction with a segment tag every megabyte, which is what makes a byte range of an
+# encrypted video decryptable on its own. Writing that by hand would be designing a
+# cipher format, which this project does not do.
+tink = "1.18.0"
+# Media3. Transformer re-encodes to 720p on the device; ExoPlayer plays the result while
+# it is still arriving. Both are needed for video to be anything other than "download a
+# hundred megabytes, then watch".
+media3 = "1.8.0"
+# Only for the Drive authorisation flow: asking for one non-sensitive scope and getting
+# an access token back. Sign-in itself stays on Credential Manager.
+playServicesAuth = "21.4.0"
 googleServices = "4.5.0"
 firebaseBom = "34.17.0"
+credentials = "1.6.0"
+googleId = "1.2.0"
+playServicesBase = "18.9.0"
+playServicesNearby = "19.3.0"
+coil = "2.7.0"
+exifinterface = "1.4.1"
+# Continuation build of upstream WebRTC. org.webrtc:google-webrtc stopped in 2021.
+webrtc = "125.6422.07"
+# E2EE。Olm/Megolm の Rust 実装（Matrix）。Apache-2.0。既製 AAR で NDK ビルド不要。
+matrixCrypto = "26.1.4"
 
 [libraries]
+webrtc = { group = "io.github.webrtc-sdk", name = "android", version.ref = "webrtc" }
+matrix-crypto = { group = "org.matrix.rustcomponents", name = "crypto-android", version.ref = "matrixCrypto" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
@@ -37,16 +65,43 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 
 kotlinx-collections-immutable = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "immutable" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-
-# Firebase. Versions come from the BoM, so none are pinned individually.
-# firebase-analytics is deliberately absent: it collects on its own, and what this app
-# reports is defined by docs/ANALYTICS_SCHEMA.md. It gets added when that schema is
-# wired through it, not before.
+# Versions come from the BoM, so none are pinned individually.
+# firebase-analytics is here as of Prototype 1: the typed schema in :core:analytics is now
+# wired through FirebaseAnalyticsSink. Automatic collection of screen views and the
+# advertising id is switched off in AndroidManifest.xml — see docs/ANALYTICS_SCHEMA.md.
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+
+# Google sign-in goes through Credential Manager; the old GoogleSignIn API is deprecated.
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
+# Already on the classpath through credentials-play-services-auth. Declared explicitly
+# because the sign-in button reads Google's own "G" out of it — see SignInScreen.kt — and
+# a resource reference to a dependency nobody declared is a build waiting to break.
+play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
+# Echo Direct, tier 1. Works with no internet at all — see docs/DIRECT_ARCHITECTURE.md.
+play-services-nearby = { group = "com.google.android.gms", name = "play-services-nearby", version.ref = "playServicesNearby" }
+
+# Only for previewing a just-picked photo from its content Uri. Everything Echo stores is
+# decoded by ProfilePhotos itself, so this never touches saved images.
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+# Phone cameras record orientation in metadata rather than rotating pixels.
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+json = { group = "org.json", name = "json", version.ref = "json" }
+tink = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
+media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+media3-transformer = { group = "androidx.media3", name = "media3-transformer", version.ref = "media3" }
+media3-effect = { group = "androidx.media3", name = "media3-effect", version.ref = "media3" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,62 +1,89 @@
-﻿package blog.nextlab.echo.data
+package blog.nextlab.echo.data
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import blog.nextlab.echo.model.BuiltInStickers
 import blog.nextlab.echo.model.ContentHash
 import blog.nextlab.echo.model.StickerAsset
 import blog.nextlab.echo.model.StickerFormat
 import blog.nextlab.echo.model.StickerId
 import blog.nextlab.echo.model.StickerOrigin
+import blog.nextlab.echo.model.StickerPackId
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
-/** Why a sticker could not be shown. */
+/** スタンプを出せなかった理由。 */
 sealed interface StickerMiss {
-    /** Not held locally, and there is no remote to ask in Prototype 0. */
+    /** 手元に無く、問い合わせ先も設定されていない。 */
     data object NotAvailableLocally : StickerMiss
 
-    /** Bytes on disk did not match the expected hash; the copy was discarded. */
+    /** バイト列が期待するハッシュと合わず、複製を捨てた。 */
     data object IntegrityFailed : StickerMiss
+
+    /** 問い合わせたが向こうにも無い。消されたか、そもそも公開されていない。 */
+    data object NotFoundRemotely : StickerMiss
+
+    data object NetworkFailed : StickerMiss
 }
 
 /**
- * The device's own copy of the stickers it has seen.
+ * この端末が見たことのあるスタンプの、自分用の複製。
  *
- * ## Where the files live, and why it matters
+ * 置き場所は `cacheDir` ではなく `filesDir`。Android は容量が減ると予告なく
+ * `cacheDir` を消し、圏外でスタンプが消えた会話は穴だらけになる。これはキャッシュ
+ * ではなく、端末に置く資産。
  *
- * Under `filesDir`, **not** `cacheDir`. Android clears `cacheDir` without warning when
- * storage runs short, and a sticker that disappears while offline is a conversation with
- * holes in it. These are persistent local assets, not cache.
+ * それでも正本ではない。正本は [StickerRepository] にあり、ここはその実体化で
+ * いつでも取り直せる。だからバックアップの対象から外している。docs/SYNC_AND_BACKUP.md。
  *
- * They are still not the master copy. From Prototype 1 the master lives in Cloud Storage
- * and this directory is a local materialisation of it, re-fetchable at any time — which
- * is exactly why it is excluded from backup. See docs/SYNC_AND_BACKUP.md.
- *
- * ## Resolution
+ * 解決:
  *
  * ```
- * stickerId -> HIT  : render immediately, no network
- *           -> MISS : fetch once, verify hash, persist, render
+ * stickerId -> あり : そのまま描く。通信なし
+ *           -> 無し : 1回取得し、ハッシュを検証し、保存して描く
  * ```
  *
- * A sender never checks whether the recipient already holds a sticker. It sends the id;
- * caching is entirely the receiving client's business.
+ * 送る側は相手が持っているか確認しない。id を送るだけで、キャッシュは受け取る側の
+ * 都合。取得は**1回**にまとめる（[inFlight] があるので、同じ新スタンプの吹き出しが
+ * 20個あってもダウンロードは1回）。
  */
-class LocalStickerStore(private val context: Context) {
+class LocalStickerStore(
+    private val context: Context,
+    private val remote: StickerRepository? = null,
+) {
 
     private val directory = File(context.filesDir, STICKER_DIR)
     private val index = ConcurrentHashMap<StickerId, StickerAsset>()
     private val decoded = ConcurrentHashMap<StickerId, ImageBitmap>()
+    private val missed = ConcurrentHashMap<StickerId, StickerMiss>()
+
+    private val inFlight = ConcurrentHashMap<StickerId, Boolean>()
+    private val diskLock = Mutex()
 
     /**
-     * Materialises the bundled pack into the local store.
+     * 取得が届くたびに増える。
      *
-     * The pack ships inside the APK, but it is installed into the same directory as
-     * everything fetched later, so there is exactly one lookup path rather than a
-     * special case for built-ins that would drift from the real one.
+     * Compose の state なので、仮画像を描いていた吹き出しが再コンポーズして
+     * 画像を拾う。無いと、関係ない再コンポーズが起きるまで出ず、スクロールすると
+     * 直るバグのように見える。
+     */
+    var revision by mutableStateOf(0)
+        private set
+
+    /**
+     * 同梱のセットを端末の置き場に展開する。
+     *
+     * APK の中に入ってはいるが、あとから取得したものと同じディレクトリに入れる。
+     * 参照経路を1本にするため（組み込み用の特別扱いを作ると、本物の経路とずれていく）。
      */
     fun installBuiltIns() {
         directory.mkdirs()
@@ -71,6 +98,8 @@ class LocalStickerStore(private val context: Context) {
                 }.onFailure { return@forEach }
             }
 
+            // swallow-ok: これはアプリが書いたキャッシュ。読めない＝持っていないと
+            // 同じ扱いで、また取りに行く。
             val bytes = runCatching { file.readBytes() }.getOrNull() ?: return@forEach
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
@@ -88,42 +117,166 @@ class LocalStickerStore(private val context: Context) {
         }
     }
 
-    /** Metadata for a locally held sticker, or null on a miss. */
+    /**
+     * 前回のインストールから残っているスタンプを索引に取り込む。
+     *
+     * 安いし、アプリのファイルが残る再インストールでは何も落とし直さずに済む。
+     */
+    fun rescan() {
+        directory.mkdirs()
+        directory.listFiles().orEmpty().forEach { file ->
+            val id = StickerId(file.nameWithoutExtension)
+            if (index.containsKey(id)) return@forEach
+            if (BuiltInStickers.entries.any { it.fileName == file.name }) return@forEach
+
+            // swallow-ok: これはアプリが書いたキャッシュ。読めない＝持っていないと
+            // 同じ扱いで、また取りに行く。
+            val bytes = runCatching { file.readBytes() }.getOrNull() ?: return@forEach
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            index[id] = StickerAsset(
+                id = id,
+                packId = CUSTOM_PACK,
+                contentHash = ContentHash.of(bytes),
+                widthPx = bounds.outWidth,
+                heightPx = bounds.outHeight,
+                byteSize = bytes.size,
+                format = if (file.extension == "webp") StickerFormat.Webp else StickerFormat.Png,
+                origin = StickerOrigin.Custom,
+            )
+        }
+    }
+
+    /** 端末が持っているスタンプの情報。無ければ null。 */
     fun asset(id: StickerId): StickerAsset? = index[id]
 
+    fun missReason(id: StickerId): StickerMiss? = missed[id]
+
     /**
-     * The image, if this device already holds it.
+     * 画像。この端末がすでに持っていれば。
      *
-     * Returns null rather than blocking on a network call: a miss must render a
-     * placeholder and let the conversation scroll, never stall the list.
+     * 通信を待たずに null を返す。無いときは仮画像を出して会話をスクロールさせる
+     * べきで、一覧を止めてはいけない。
      */
     fun image(id: StickerId): ImageBitmap? {
         decoded[id]?.let { return it }
         val asset = index[id] ?: return null
         val file = fileFor(asset) ?: return null
 
+        // swallow-ok: デコードできないスタンプは「無い」として取り直す。報告しても
+        // 取り直しがすでにやること以上のことは言えない。
         val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
             ?: return null
         return bitmap.asImageBitmap().also { decoded[id] = it }
     }
 
     /**
-     * The miss path: fetch once from the master copy, verify, persist, then render.
+     * 無かったとき: 正本から1回取得し、検証し、保存して描く。
      *
-     * Prototype 0 has no backend by design, so this always reports a miss. The shape is
-     * here now so that Prototype 1 fills in a body rather than reshaping every call site.
+     * ハッシュの確認は完全性のためで、安全のためではない。途中で切れたダウンロードや
+     * 壊れたファイルを捕まえるだけで、誰がスタンプを見てよいかについては何も言わない。
+     * それを決めるのは firestore.rules。docs/STICKER_ARCHITECTURE.md §5。
      */
-    @Suppress("UNUSED_PARAMETER")
-    suspend fun fetchAndPersist(id: StickerId): Result<StickerAsset> =
-        Result.failure(StickerUnavailable(StickerMiss.NotAvailableLocally))
+    suspend fun fetchAndPersist(id: StickerId): Result<StickerAsset> {
+        index[id]?.let { return Result.success(it) }
+        val repository = remote
+            ?: return Result.failure(StickerUnavailable(StickerMiss.NotAvailableLocally))
 
-    private fun fileFor(asset: StickerAsset): File? =
-        BuiltInStickers.entries.firstOrNull { it.id == asset.id }
-            ?.let { File(directory, it.fileName) }
-            ?.takeIf { it.exists() }
+        // 別の吹き出しがすでに取りに行っている。そちらに任せる。
+        if (inFlight.putIfAbsent(id, true) != null) {
+            return Result.failure(StickerUnavailable(StickerMiss.NotAvailableLocally))
+        }
+
+        try {
+            val fetched = repository.fetch(id).getOrElse { error ->
+                val reason = if (error.message?.contains("not found") == true) {
+                    StickerMiss.NotFoundRemotely
+                } else {
+                    StickerMiss.NetworkFailed
+                }
+                missed[id] = reason
+                return Result.failure(StickerUnavailable(reason))
+            }
+
+            val actual = ContentHash.of(fetched.bytes)
+            if (fetched.contentHash.value.isNotEmpty() && actual != fetched.contentHash) {
+                missed[id] = StickerMiss.IntegrityFailed
+                return Result.failure(StickerUnavailable(StickerMiss.IntegrityFailed))
+            }
+
+            val extension = if (fetched.format == StickerFormat.Webp) "webp" else "png"
+            val file = File(directory, "${id.value}.$extension")
+            withContext(Dispatchers.IO) {
+                diskLock.withLock {
+                    directory.mkdirs()
+                    file.writeBytes(fetched.bytes)
+                }
+            }
+
+            val asset = StickerAsset(
+                id = id,
+                packId = CUSTOM_PACK,
+                contentHash = actual,
+                widthPx = fetched.widthPx,
+                heightPx = fetched.heightPx,
+                byteSize = fetched.bytes.size,
+                format = fetched.format,
+                origin = StickerOrigin.Custom,
+            )
+            index[id] = asset
+            missed.remove(id)
+            revision++
+            return Result.success(asset)
+        } finally {
+            inFlight.remove(id)
+        }
+    }
+
+    /** この端末が作ったばかりのスタンプを、往復せずに置く。 */
+    suspend fun persistLocal(
+        id: StickerId,
+        bytes: ByteArray,
+        widthPx: Int,
+        heightPx: Int,
+        format: StickerFormat,
+    ): StickerAsset {
+        val extension = if (format == StickerFormat.Webp) "webp" else "png"
+        val file = File(directory, "${id.value}.$extension")
+        withContext(Dispatchers.IO) {
+            diskLock.withLock {
+                directory.mkdirs()
+                file.writeBytes(bytes)
+            }
+        }
+        return StickerAsset(
+            id = id,
+            packId = CUSTOM_PACK,
+            contentHash = ContentHash.of(bytes),
+            widthPx = widthPx,
+            heightPx = heightPx,
+            byteSize = bytes.size,
+            format = format,
+            origin = StickerOrigin.Custom,
+        ).also {
+            index[id] = it
+            revision++
+        }
+    }
+
+    /** いますぐ描けるスタンプ全部。 */
+    fun localIds(): List<StickerId> = index.keys.toList()
+
+    private fun fileFor(asset: StickerAsset): File? {
+        BuiltInStickers.entries.firstOrNull { it.id == asset.id }?.let {
+            return File(directory, it.fileName).takeIf(File::exists)
+        }
+        val extension = if (asset.format == StickerFormat.Webp) "webp" else "png"
+        return File(directory, "${asset.id.value}.$extension").takeIf(File::exists)
+    }
 
     private companion object {
         const val STICKER_DIR = "stickers"
+        val CUSTOM_PACK = StickerPackId("pack_custom")
     }
 }
 

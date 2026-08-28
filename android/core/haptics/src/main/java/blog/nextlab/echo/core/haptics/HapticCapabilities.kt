@@ -7,44 +7,44 @@ import android.os.Vibrator
 import android.os.VibratorManager
 
 /**
- * The fallback ladder, richest first.
+ * 段階の梯子。上ほど豊か。
  *
- * The ceiling is the API 36 envelope; everything below it is a graceful degradation
- * down to minSdk 24. See docs/HAPTIC_DESIGN.md.
+ * 天井は API 36 のエンベロープで、そこから minSdk 24 まで段階的に落とす。
+ * docs/HAPTIC_DESIGN.md。
  */
 enum class HapticTier {
-    /** T4 — API 36+, `VibrationEffect.BasicEnvelopeBuilder`. */
+    /** T4 — API 36+、`VibrationEffect.BasicEnvelopeBuilder`。 */
     Envelope,
 
-    /** T3 — API 31+, compositions including LOW_TICK / THUD / SPIN. */
+    /** T3 — API 31+、LOW_TICK / THUD / SPIN を含む合成。 */
     PrimitiveRich,
 
-    /** T2 — API 30, compositions limited to the original primitives. */
+    /** T2 — API 30、最初からあるプリミティブだけの合成。 */
     Primitive,
 
-    /** T1 — API 29, `createPredefined`. */
+    /** T1 — API 29、`createPredefined`。 */
     Predefined,
 
-    /** T0 — API 26, explicit waveforms. */
+    /** T0 — API 26、波形を明示。 */
     Waveform,
 
-    /** T-1 — API 24, durations only. */
+    /** T-1 — API 24、長さだけ。 */
     Legacy,
 
-    /** No vibrator, or vibration unavailable. */
+    /** 振動子が無いか、振動が使えない。 */
     None,
     ;
 
-    /** The next tier down, or `null` at the bottom of the ladder. */
+    /** 1つ下の段。梯子の底なら `null`。 */
     val next: HapticTier?
         get() = entries.getOrNull(ordinal + 1)
 }
 
 /**
- * What this particular device can actually do.
+ * この端末が実際にできること。
  *
- * API level alone is not enough: a phone can run API 36 and still have a vibrator with
- * no envelope support, so every tier is gated on a real capability query.
+ * API のレベルだけでは足りない。API 36 で動いていて、エンベロープに対応しない
+ * 振動子を積んだ端末はありうる。なのでどの段も、本当の能力の問い合わせで判定する。
  */
 data class HapticCapabilities(
     val hasVibrator: Boolean,
@@ -60,7 +60,7 @@ data class HapticCapabilities(
     val apiLevel: Int,
 ) {
     companion object {
-        /** Sensible defaults for devices that refuse to answer capability queries. */
+        /** 能力の問い合わせに答えない端末のための、無難な既定値。 */
         internal const val DEFAULT_ENVELOPE_MAX_POINTS = 16
         internal const val DEFAULT_ENVELOPE_MIN_POINT_MS = 1L
         internal const val DEFAULT_ENVELOPE_MAX_POINT_MS = 1_000L
@@ -136,7 +136,7 @@ internal fun detectCapabilities(vibrator: Vibrator?): HapticCapabilities {
             val ids = candidates.map { it.platformId }.toIntArray()
             val results = runCatching { vibrator.areEffectsSupported(*ids) }.getOrNull()
             if (results == null || results.size != candidates.size) {
-                // Unknown support still means createPredefined() works; it just falls back internally.
+                // 対応が不明でも createPredefined() は動く。内部で勝手に落ちるだけ。
                 candidates.toSet()
             } else {
                 candidates.filterIndexed { index, _ ->
@@ -144,7 +144,7 @@ internal fun detectCapabilities(vibrator: Vibrator?): HapticCapabilities {
                 }.toSet()
             }
         }
-        // API 29 has createPredefined() but no way to ask about support.
+        // API 29 には createPredefined() はあるが、対応を尋ねる方法が無い。
         api >= 29 -> HapticPredefined.entries.toSet()
         else -> emptySet()
     }

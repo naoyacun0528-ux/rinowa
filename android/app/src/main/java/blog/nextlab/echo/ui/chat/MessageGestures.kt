@@ -6,16 +6,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.pointerInput
-import blog.nextlab.echo.core.designsystem.EchoSwipe
+import blog.nextlab.echo.core.designsystem.RinowaSwipe
 import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Callbacks for [messageGestures].
+ * [messageGestures] のコールバック。
  *
- * Threshold crossings are reported as discrete enter/exit events rather than as a boolean
- * on every frame, because the haptic must fire exactly once per crossing. Recomputing
- * "am I past the line" per frame is how swipe haptics end up buzzing continuously.
+ * 閾値の出入りは毎フレームの真偽値ではなく、入った・出たという個別の出来事として
+ * 報告する。触覚は1回の横断につきちょうど1回鳴る必要があり、毎フレーム
+ * 「いま線の向こうか」を計算する作りにすると、スワイプ中ずっと振動し続ける。
  */
 class MessageGestureHandlers(
     val onSwipeStart: () -> Unit = {},
@@ -37,39 +37,36 @@ class MessageGestureHandlers(
 private enum class GestureMode { Undecided, Swipe, LongPress, Tap, Abandoned }
 
 /**
- * Reply-swipe and long-press-to-react, resolved by a single state machine.
+ * 返信スワイプと長押しリアクションを、1つの状態機械で解決する。
  *
- * They have to share one gesture: two independent detectors would race, and the common
- * failure is a long press that also nudges the bubble sideways, or a swipe that fires the
- * reaction picker mid-drag.
+ * 1つのジェスチャーにまとめる必要がある。別々の検出器にすると競合し、よくある
+ * 失敗は「長押ししたのに吹き出しが横にずれる」か「ドラッグの途中でリアクションが出る」。
  *
- * Resolution rules, in order:
- *  - vertical movement first  -> abandon, and consume nothing so the list scrolls
- *  - rightward movement first -> reply swipe
- *  - leftward movement first  -> abandon (reserved; left swipe has no meaning yet)
- *  - no movement until the long-press timeout -> reaction picker
- *  - released before any of the above -> tap
+ * 解決の順序:
+ *  - 先に縦へ動いた   -> 何も消費せず手を引く（一覧がスクロールする）
+ *  - 先に右へ動いた   -> 返信スワイプ
+ *  - 先に左へ動いた   -> 手を引く（左スワイプはまだ意味を持たせていない）
+ *  - 長押しの時間まで動かない -> リアクションの選択
+ *  - その前に離した   -> タップ
  *
- * ## This modifier must go on a node the drag does not move
+ * この modifier は、ドラッグで動かない要素に付けること。
  *
- * Pointer positions are reported relative to the node that owns the `pointerInput`. If
- * that node is the one being translated by the drag, every pixel the bubble travels is
- * subtracted from the next reported position, and the system settles at
- * `offset = fingerTravel - offset`, i.e. the bubble tracks at exactly half finger speed
- * while oscillating around that equilibrium each frame.
+ * 指の位置は `pointerInput` を持つ要素からの相対で報告される。その要素自体が
+ * ドラッグで動いていると、吹き出しが進んだぶんが次の報告位置から引かれ、
+ * `offset = 指の移動 - offset` で釣り合う。つまり吹き出しは指の半分の速さで付いていき、
+ * その釣り合いの周りで毎フレーム揺れる。
  *
- * That was measured, not guessed: a 410 px swipe over 1200 ms crossed a 189 px threshold
- * at 1089 ms, by which point the finger had travelled 372 px — half of which is 186 px.
- * Visually it reads as the bubble flickering between two positions, and the oscillation
- * re-crosses the threshold, firing the threshold haptic more than once.
+ * 実測した数字: 1200ms で 410px スワイプすると、189px の閾値を 1089ms に越え、
+ * その時点で指は 372px 進んでいた（その半分が 186px）。見た目には吹き出しが2つの
+ * 位置でちらつき、揺れが閾値を何度も跨いで触覚が複数回鳴る。
  *
- * So: attach this to the stationary container and translate a **child** of it.
+ * したがって、これは動かない入れ物に付け、**その子**を動かす。
  */
 fun Modifier.messageGestures(
     key: Any?,
     enabled: Boolean,
     thresholdPx: Float,
-    /** Hysteresis: once past, the drag must fall back to here before it counts as released. */
+    /** 履歴（ヒステリシス）。一度越えたら、ここまで戻らないと解除にならない。 */
     releaseThresholdPx: Float,
     maxPx: Float,
     handlers: MessageGestureHandlers,
@@ -81,7 +78,7 @@ fun Modifier.messageGestures(
         val down = awaitFirstDown(requireUnconsumed = false)
         var mode = GestureMode.Undecided
 
-        // ---- phase 1: work out what the finger is doing -------------------------
+        // ---- 第1段: 指が何をしているかを見極める --------------------------------
         try {
             withTimeout(longPressTimeoutMs) {
                 while (mode == GestureMode.Undecided) {
@@ -99,7 +96,7 @@ fun Modifier.messageGestures(
                     val dy = change.position.y - down.position.y
                     when {
                         abs(dy) > slop && abs(dy) >= abs(dx) -> {
-                            // Vertical intent. Consume nothing; the list owns this gesture.
+                            // 縦の意図。何も消費しない。このジェスチャーは一覧のもの。
                             mode = GestureMode.Abandoned
                             return@withTimeout
                         }
@@ -115,7 +112,7 @@ fun Modifier.messageGestures(
             if (mode == GestureMode.Undecided) mode = GestureMode.LongPress
         }
 
-        // ---- phase 2: run it ----------------------------------------------------
+        // ---- 第2段: 実行する ----------------------------------------------------
         when (mode) {
             GestureMode.Tap -> handlers.onTap()
 
@@ -131,14 +128,12 @@ fun Modifier.messageGestures(
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                     if (!change.pressed) break
 
-                    // Subtract the slop so the bubble starts exactly under the finger
-                    // instead of jumping by the slop distance on the first frame.
+                    // slop を引く。最初のフレームで slop のぶん飛ばず、指の真下から始まる。
                     val raw = (change.position.x - down.position.x - slop).coerceAtLeast(0f)
-                    offset = EchoSwipe.resist(raw, thresholdPx, maxPx)
+                    offset = RinowaSwipe.resist(raw, thresholdPx, maxPx)
                     maxOffset = max(maxOffset, offset)
 
-                    // Hysteresis, so a finger resting on the line cannot chatter the
-                    // threshold haptic on and off.
+                    // ヒステリシス。線の上に置いた指で閾値の触覚が細かく鳴り続けないように。
                     val nowPast = if (pastThreshold) {
                         offset >= releaseThresholdPx
                     } else {

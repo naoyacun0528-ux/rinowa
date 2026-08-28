@@ -6,16 +6,16 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
- * The app-wide haptics instance.
+ * アプリ全体で使う触覚の実体。
  *
- * Defaults to [NoOpHaptics] so that `@Preview` composables and tests never try to reach a
- * real vibrator.
+ * 既定は [NoOpHaptics]。`@Preview` のコンポーザブルやテストが、本物の振動子に
+ * 触りに行かないように。
  */
-val LocalEchoHaptics: ProvidableCompositionLocal<EchoHaptics> =
+val LocalRinowaHaptics: ProvidableCompositionLocal<RinowaHaptics> =
     staticCompositionLocalOf { NoOpHaptics() }
 
-/** Shorthand for `LocalEchoHaptics.current`. */
-val haptics: EchoHaptics
+/** `LocalRinowaHaptics.current` の短い書き方。 */
+val haptics: RinowaHaptics
     @Composable
     @ReadOnlyComposable
-    get() = LocalEchoHaptics.current
+    get() = LocalRinowaHaptics.current

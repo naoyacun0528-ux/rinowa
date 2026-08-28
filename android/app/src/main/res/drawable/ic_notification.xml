@@ -1,0 +1,39 @@
+<!--
+  The Rinowa mark, drawn for the status bar.
+
+  A notification's small icon is not a shrunken app icon: Android throws away its colours
+  and keeps only the alpha channel, so anything opaque becomes a solid white blob. Reusing
+  the launcher icon produced exactly that — a featureless circle on the arrows We2, where
+  the Pixel happened to flatter it slightly.
+
+  So this is white-on-transparent by construction: three open strokes with nothing filled,
+  which survives the silhouetting because the silhouette is all it ever was. The tint comes
+  from setColor() on the notification.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:pathData="M7.2,8.2 Q3.4,12 7.2,15.8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <path
+        android:pathData="M12.5,4.8 Q7.2,12 12.5,19.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <path
+        android:pathData="M17.8,2.4 Q11,12 17.8,21.6"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

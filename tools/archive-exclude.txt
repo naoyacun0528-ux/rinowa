@@ -1,0 +1,10 @@
+# Paths kept out of the source archive, one per line, repo-relative, forward slashes.
+#
+# Separate from .gitignore because these files belong *in* the repository and only out of
+# an archive that goes to somebody else. Reading the list from here rather than naming the
+# files inside tools/release.ps1 keeps the script — which does ship — from carrying the
+# names of the things it leaves behind.
+#
+# Blank lines and lines starting with # are ignored. This file excludes itself.
+
+CLAUDE.md

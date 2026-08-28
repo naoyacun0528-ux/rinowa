@@ -44,8 +44,8 @@ android {
         // Versioning: fixes and small additions bump the patch (0.1.0 -> 0.1.1); a
         // substantial new feature bumps the minor (0.1.x -> 0.2.0).
         // Keep in sync with outputs/README.md.
-        versionCode = 10
-        versionName = "0.4.1"
+        versionCode = 70
+        versionName = "0.20.3"
     }
 
     signingConfigs {
@@ -63,6 +63,11 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // WebRTC ships native libraries for four ABIs and they dominate the APK. Test
+            // builds are downloaded over mobile data every time something changes, and
+            // every device in the test set is arm64 — so the other three are 35 MB of
+            // nothing. Release keeps all of them until the App Bundle lands.
+            ndk { abiFilters += "arm64-v8a" }
         }
         release {
             signingConfig = signingConfigs.findByName("release")
@@ -81,6 +86,33 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    /**
+     * One APK per architecture, plus a universal one.
+     *
+     * ## Why this exists now
+     *
+     * Play delivers only the slice a phone needs, so an App Bundle hides this problem
+     * entirely. **Rinowa is handed out as a file over a URL**, and there the universal APK
+     * is what somebody actually downloads — four copies of every native library, of which
+     * their phone uses one.
+     *
+     * With E2EE the native payload roughly doubled, and the gap stopped being academic:
+     * 14.6 MB became 33.5 MB for one architecture, but 44.7 MB became 120.3 MB for the
+     * universal build. **The download that used to be merely wasteful became the reason
+     * not to download.**
+     *
+     * The universal APK is kept because it is the one that works on anything, which matters
+     * when handing a build to a device nobody has checked. The publish script picks arm64.
+     */
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -91,6 +123,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:haptics"))
     implementation(project(":core:analytics"))
+    implementation(project(":core:wire"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -105,6 +138,27 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.messaging)
+
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
+    implementation(libs.play.services.base)
+    implementation(libs.play.services.nearby)
+    implementation(libs.play.services.auth)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.webrtc)
+    // E2EE。Matrix の Rust 暗号 SDK（Olm/Megolm）。Apache-2.0、既製 AAR。
+    // 採用理由と実測は docs/RESEARCH_E2EE.md §2.4。
+    implementation(libs.matrix.crypto)
+    implementation(libs.tink)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -115,4 +169,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.json)
 }

@@ -1,0 +1,208 @@
+  single JSON/none 31ms
+  single JSON/gzip 693ms
+  single JSON/deflate 756ms
+  single JSON/deflate+dict32k 2385ms
+  single JSON/brotli q5 3101ms
+  single JSON/brotli q11 35207ms
+  single JSON/zstd L3 916ms
+  single JSON/zstd L19 1872ms
+  single MessagePack/none 112ms
+  single MessagePack/gzip 1872ms
+  single MessagePack/deflate 1856ms
+  single MessagePack/deflate+dict32k 5172ms
+  single MessagePack/brotli q5 3206ms
+  single MessagePack/brotli q11 26873ms
+  single MessagePack/zstd L3 944ms
+  single MessagePack/zstd L19 1792ms
+  single CBOR/none 105ms
+  single CBOR/gzip 1845ms
+  single CBOR/deflate 1836ms
+  single CBOR/deflate+dict32k 5152ms
+  single CBOR/brotli q5 3297ms
+  single CBOR/brotli q11 25852ms
+  single CBOR/zstd L3 917ms
+  single CBOR/zstd L19 1830ms
+  single EWF/none 308ms
+  single EWF/gzip 4255ms
+  single EWF/deflate 3819ms
+  single EWF/deflate+dict32k 13263ms
+  single EWF/brotli q5 6041ms
+  single EWF/brotli q11 58079ms
+  single EWF/zstd L3 2227ms
+  single EWF/zstd L19 3840ms
+  single EWF+KANA8/none 351ms
+  single EWF+KANA8/gzip 5140ms
+  single EWF+KANA8/deflate 4932ms
+  single EWF+KANA8/deflate+dict32k 16718ms
+  single EWF+KANA8/brotli q5 7101ms
+  single EWF+KANA8/brotli q11 106706ms
+  single EWF+KANA8/zstd L3 2534ms
+  single EWF+KANA8/zstd L19 4066ms
+  single EWF+ETX/none 538ms
+  single EWF+ETX/gzip 5327ms
+  single EWF+ETX/deflate 5190ms
+  single EWF+ETX/deflate+dict32k 16383ms
+  single EWF+ETX/brotli q5 7127ms
+  single EWF+ETX/brotli q11 110084ms
+  single EWF+ETX/zstd L3 2934ms
+  single EWF+ETX/zstd L19 4098ms
+  single JSON/zstd+dict110k (n=300) ... 3485ms
+  single EWF/zstd+dict110k (n=300) ... 3567ms
+  single EWF+KANA8/zstd+dict110k (n=300) ... 3531ms
+  single EWF+ETX/zstd+dict110k (n=300) ... 3510ms
+  burst JSON/none 59ms
+  burst JSON/gzip 549ms
+  burst JSON/deflate 522ms
+  burst JSON/deflate+dict32k 1131ms
+  burst JSON/brotli q5 1207ms
+  burst JSON/brotli q11 13852ms
+  burst JSON/zstd L3 248ms
+  burst JSON/zstd L19 2140ms
+  burst MessagePack/none 91ms
+  burst MessagePack/gzip 630ms
+  burst MessagePack/deflate 600ms
+  burst MessagePack/deflate+dict32k 1240ms
+  burst MessagePack/brotli q5 1642ms
+  burst MessagePack/brotli q11 12296ms
+  burst MessagePack/zstd L3 273ms
+  burst MessagePack/zstd L19 1802ms
+  burst CBOR/none 99ms
+  burst CBOR/gzip 573ms
+  burst CBOR/deflate 560ms
+  burst CBOR/deflate+dict32k 1295ms
+  burst CBOR/brotli q5 1283ms
+  burst CBOR/brotli q11 12438ms
+  burst CBOR/zstd L3 313ms
+  burst CBOR/zstd L19 1991ms
+  burst EWF/none 177ms
+  burst EWF/gzip 1380ms
+  burst EWF/deflate 1355ms
+  burst EWF/deflate+dict32k 3390ms
+  burst EWF/brotli q5 2905ms
+  burst EWF/brotli q11 24455ms
+  burst EWF/zstd L3 729ms
+  burst EWF/zstd L19 1536ms
+  burst EWF+KANA8/none 298ms
+  burst EWF+KANA8/gzip 1725ms
+  burst EWF+KANA8/deflate 1811ms
+  burst EWF+KANA8/deflate+dict32k 3846ms
+  burst EWF+KANA8/brotli q5 2963ms
+  burst EWF+KANA8/brotli q11 45262ms
+  burst EWF+KANA8/zstd L3 946ms
+  burst EWF+KANA8/zstd L19 1668ms
+  burst EWF+ETX/none 434ms
+  burst EWF+ETX/gzip 1961ms
+  burst EWF+ETX/deflate 1955ms
+  burst EWF+ETX/deflate+dict32k 4130ms
+  burst EWF+ETX/brotli q5 2915ms
+  burst EWF+ETX/brotli q11 41017ms
+  burst EWF+ETX/zstd L3 1129ms
+  burst EWF+ETX/zstd L19 1757ms
+  burst JSON/zstd+dict110k (n=300) ... 3456ms
+  burst EWF/zstd+dict110k (n=300) ... 3593ms
+  burst EWF+KANA8/zstd+dict110k (n=300) ... 3564ms
+  burst EWF+ETX/zstd+dict110k (n=300) ... 3390ms
+  sync JSON/none 45ms
+  sync JSON/gzip 177ms
+  sync JSON/deflate 221ms
+  sync JSON/deflate+dict32k 258ms
+  sync JSON/brotli q5 218ms
+  sync JSON/brotli q11 11626ms
+  sync JSON/zstd L3 101ms
+  sync JSON/zstd L19 3716ms
+  sync MessagePack/none 101ms
+  sync MessagePack/gzip 241ms
+  sync MessagePack/deflate 255ms
+  sync MessagePack/deflate+dict32k 370ms
+  sync MessagePack/brotli q5 455ms
+  sync MessagePack/brotli q11 10685ms
+  sync MessagePack/zstd L3 122ms
+  sync MessagePack/zstd L19 3102ms
+  sync CBOR/none 109ms
+  sync CBOR/gzip 250ms
+  sync CBOR/deflate 270ms
+  sync CBOR/deflate+dict32k 330ms
+  sync CBOR/brotli q5 408ms
+  sync CBOR/brotli q11 11244ms
+  sync CBOR/zstd L3 150ms
+  sync CBOR/zstd L19 3010ms
+  sync EWF/none 198ms
+  sync EWF/gzip 377ms
+  sync EWF/deflate 395ms
+  sync EWF/deflate+dict32k 612ms
+  sync EWF/brotli q5 921ms
+  sync EWF/brotli q11 12236ms
+  sync EWF/zstd L3 250ms
+  sync EWF/zstd L19 1544ms
+  sync EWF+KANA8/none 256ms
+  sync EWF+KANA8/gzip 505ms
+  sync EWF+KANA8/deflate 496ms
+  sync EWF+KANA8/deflate+dict32k 773ms
+  sync EWF+KANA8/brotli q5 1137ms
+  sync EWF+KANA8/brotli q11 13444ms
+  sync EWF+KANA8/zstd L3 340ms
+  sync EWF+KANA8/zstd L19 1110ms
+  sync EWF+ETX/none 405ms
+  sync EWF+ETX/gzip 615ms
+  sync EWF+ETX/deflate 654ms
+  sync EWF+ETX/deflate+dict32k 1030ms
+  sync EWF+ETX/brotli q5 969ms
+  sync EWF+ETX/brotli q11 13571ms
+  sync EWF+ETX/zstd L3 499ms
+  sync EWF+ETX/zstd L19 1310ms
+  sync JSON/zstd+dict110k (n=20) ... 257ms
+  sync EWF/zstd+dict110k (n=20) ... 251ms
+  sync EWF+KANA8/zstd+dict110k (n=20) ... 220ms
+  sync EWF+ETX/zstd+dict110k (n=20) ... 240ms
+  bundle JSON/none 57ms
+  bundle JSON/gzip 176ms
+  bundle JSON/deflate 247ms
+  bundle JSON/deflate+dict32k 250ms
+  bundle JSON/brotli q5 217ms
+  bundle JSON/brotli q11 11738ms
+  bundle JSON/zstd L3 87ms
+  bundle JSON/zstd L19 4265ms
+  bundle MessagePack/none 73ms
+  bundle MessagePack/gzip 189ms
+  bundle MessagePack/deflate 316ms
+  bundle MessagePack/deflate+dict32k 316ms
+  bundle MessagePack/brotli q5 247ms
+  bundle MessagePack/brotli q11 11837ms
+  bundle MessagePack/zstd L3 148ms
+  bundle MessagePack/zstd L19 3683ms
+  bundle CBOR/none 107ms
+  bundle CBOR/gzip 253ms
+  bundle CBOR/deflate 320ms
+  bundle CBOR/deflate+dict32k 323ms
+  bundle CBOR/brotli q5 286ms
+  bundle CBOR/brotli q11 12357ms
+  bundle CBOR/zstd L3 128ms
+  bundle CBOR/zstd L19 3625ms
+  bundle EWF/none 171ms
+  bundle EWF/gzip 378ms
+  bundle EWF/deflate 416ms
+  bundle EWF/deflate+dict32k 478ms
+  bundle EWF/brotli q5 593ms
+  bundle EWF/brotli q11 13122ms
+  bundle EWF/zstd L3 217ms
+  bundle EWF/zstd L19 1976ms
+  bundle EWF+KANA8/none 272ms
+  bundle EWF+KANA8/gzip 463ms
+  bundle EWF+KANA8/deflate 501ms
+  bundle EWF+KANA8/deflate+dict32k 643ms
+  bundle EWF+KANA8/brotli q5 669ms
+  bundle EWF+KANA8/brotli q11 13433ms
+  bundle EWF+KANA8/zstd L3 412ms
+  bundle EWF+KANA8/zstd L19 1307ms
+  bundle EWF+ETX/none 390ms
+  bundle EWF+ETX/gzip 657ms
+  bundle EWF+ETX/deflate 592ms
+  bundle EWF+ETX/deflate+dict32k 805ms
+  bundle EWF+ETX/brotli q5 778ms
+  bundle EWF+ETX/brotli q11 12664ms
+  bundle EWF+ETX/zstd L3 459ms
+  bundle EWF+ETX/zstd L19 1452ms
+  bundle JSON/zstd+dict110k (n=5) ... 71ms
+  bundle EWF/zstd+dict110k (n=5) ... 64ms
+  bundle EWF+KANA8/zstd+dict110k (n=5) ... 72ms
+  bundle EWF+ETX/zstd+dict110k (n=5) ... 60ms

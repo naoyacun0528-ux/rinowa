@@ -1,4 +1,4 @@
-# HAPTIC DESIGN SYSTEM
+# Rinowa Haptic Design — Nagori v1
 
 触覚はこの製品の主要な差別化要素である。
 
@@ -255,7 +255,7 @@ T-1（API 24-25、振幅制御なし）は duration のみで近似する。
 スタンプを単なる画像機能に閉じない。将来的に
 
 ```
-Sticker + Animation + Haptic  =  Echo 独自の Expression
+Sticker + Animation + Haptic  =  Rinowa 独自の Expression
 ```
 
 へ拡張できる設計とする。→ [STICKER_ARCHITECTURE.md](STICKER_ARCHITECTURE.md)
@@ -301,7 +301,7 @@ Expression 専用トークンは、アニメーション表現を実装する段
 
 開発者本人がこの画面で全トークンを触り、
 「`destructive` が `send` と区別しづらい」のような指摘を返す。
-Claude はその指摘を受けて `HapticTokenSpec` の数値だけを変更する。
+その指摘を受けて、`HapticTokenSpec` の数値だけを変更する。
 
 ---
 

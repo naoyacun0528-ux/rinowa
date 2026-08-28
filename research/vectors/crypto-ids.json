@@ -1,0 +1,33 @@
+{
+  "note": "Matrix の識別子の形。**Android と iOS で1文字でも違うと、鍵が噛み合わない。** しかも症状は「鍵が無い」ではなく「署名が一致しない」で、移行ではなく攻撃に見える。See android/app/src/main/java/blog/nextlab/echo/crypto/CryptoIds.kt.",
+
+  "domain": "lowan.local",
+  "domainNote": "**凍結。** アプリが Echo → Lowan → Rinowa と改名しても、ここは動かさない。この文字列は全端末の識別子と全会話の部屋 id に焼き付いていて、公開済みの鍵にも入っている。変える必要が出たら、それは改名ではなく全員の鍵の作り直し。",
+
+  "user": [
+    { "uid": "K1mN4pQ7rS0tU3vW6xY9zA2bC5dE", "matrix": "@K1mN4pQ7rS0tU3vW6xY9zA2bC5dE:lowan.local" },
+    { "uid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaa", "matrix": "@aaaaaaaaaaaaaaaaaaaaaaaaaaaa:lowan.local" }
+  ],
+
+  "room": [
+    { "conversationId": "aB3dEf6hIj9lMn2pQr5t", "matrix": "!aB3dEf6hIj9lMn2pQr5t:lowan.local" }
+  ],
+
+  "parse": {
+    "note": "形が違えば推測せず null。解析できない id は想定外のところから来たもので、そこから uid をでっち上げると、その推測が指した人のメッセージということになる。",
+    "valid": [
+      { "matrix": "@K1mN4pQ7rS0tU3vW6xY9zA2bC5dE:lowan.local", "uid": "K1mN4pQ7rS0tU3vW6xY9zA2bC5dE" },
+      { "matrix": "@x:lowan.local", "uid": "x" },
+      { "matrix": "@x:whatever.example", "uid": "x" }
+    ],
+    "invalid": [
+      "",
+      "@",
+      "@:lowan.local",
+      "K1mN4pQ7rS0tU3vW6xY9zA2bC5dE",
+      "!aB3dEf6hIj9lMn2pQr5t:lowan.local",
+      "@nocolon",
+      " @x:lowan.local"
+    ]
+  }
+}

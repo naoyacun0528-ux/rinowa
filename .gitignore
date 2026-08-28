@@ -23,3 +23,50 @@ keystore.properties
 # notes are tracked. Remove these two lines if the builds should be kept in history.
 outputs/**/*.apk
 outputs/**/*.zip
+
+# Rules test dependencies
+rules-tests/node_modules/
+research/wire/node_modules/
+rules-tests/package-lock.json
+firestore-debug.log
+firebase-debug.log
+.firebase/
+
+# TURN の実資格情報。turn_cloudflare_sample.php のほうは雛形なので追跡する。
+# ここを外すと、Cloudflare の API トークンがそのままリポジトリに入る。
+server/turn_cloudflare.php
+server/turn_secret.php
+
+# Any log, anywhere. firestore-debug.log was listed by name and a 108 KB copy of it still
+# reached a zip, because the packaging step walked the disk instead of asking git what
+# belongs. Both halves are fixed: the archive is built from git's view (tools/release.ps1),
+# and the pattern here is now a shape rather than a list of names somebody has to extend.
+*.log
+
+# Swift build output. Nothing here is source; the names inside contain spaces, which the
+# archive's name check correctly refuses, so ignoring it is what stops a release stalling
+# on somebody else's generated files.
+ios/**/.build/
+
+# Machine-local paths for tools/release.ps1. Never in the archive, never committed.
+tools/local.ps1
+
+# ---------------------------------------------------------------- 公開しないもの
+#
+# 公開リポジトリなので、ここに書いたものは外に出ない。
+# 出して惜しいのは**コードではなく、そこに至った思考**。結論は実装を読めば分かるが、
+# 何を試して何を捨てたかは、書いてある場所がここにしかない。
+
+# 研究記録。測定と採否の全経緯。捨てた道も全部。
+docs/RESEARCH_*.md
+
+# 測定の生の出力。
+research/wire/*.txt
+
+# 他人が書いたもの。App Store のクチコミ 2,903件。
+# 自分のものではないので、まとめて再公開しない。
+research/line-reviews/
+
+# 手元に配るためにまとめたもの。中身は上のものの複製。
+outputs/*-internal/
+outputs/*-internal.zip

@@ -2,27 +2,22 @@
 
 /**
  * ┌──────────────────────────────────────────────────────────────────────────┐
- * │  THE TUNING TABLE                                                        │
+ * │  調整表                                                                   │
  * │                                                                          │
- * │  This is the single file to edit after feeling something on a device.    │
- * │  Nothing else in the app contains haptic magic numbers.                  │
+ * │  実機で触って直すときに開くのはこのファイルだけ。触覚の数値は他に無い。    │
  * │                                                                          │
- * │  Workflow:  feel it on the Pixel  ->  say what is wrong  ->  change a    │
- * │             number here  ->  rebuild.                                    │
+ * │  手順: Pixel で触る → どう嫌かを言う → ここの数字を変える → 建て直す     │
  * └──────────────────────────────────────────────────────────────────────────┘
  *
- * ## Which knob raises the pitch
+ * 音程を上げるつまみは、エンベロープ段の `sharpness` だけ（0＝鈍く低い、1＝硬く高い）。
+ * プリミティブ段では周波数が OS 側で決まっているので、高く鳴らす唯一の方法は
+ * 軽いプリミティブを選ぶこと:
  *
- * Only the envelope tier exposes frequency, as `sharpness` (0 = dull and low, 1 = crisp
- * and high). At the primitive tier the OS fixes the frequency per primitive, so the only
- * way to sound higher is to pick a lighter primitive:
+ *     TICK  >  CLICK  >  LOW_TICK / THUD          (高い ......... 低い)
  *
- *     TICK  >  CLICK  >  LOW_TICK / THUD          (higher ......... lower)
+ * sharpness は利用者の強度設定で増減させない。強さではなく、その触覚の性格を表すため。
  *
- * Sharpness is deliberately *not* scaled by the user's intensity setting: it carries the
- * token's character, not its strength.
- *
- * Values mirror docs/HAPTIC_DESIGN.md. Keep both in sync when tuning.
+ * 値は docs/HAPTIC_DESIGN.md と対応。調整したら両方直す。
  */
 object HapticTokens {
 
@@ -39,7 +34,7 @@ object HapticTokens {
         waveform = WaveformSpec(timings = listOf(8), amplitudes = listOf(40)),
         legacy = LegacySpec(listOf(0, 8)),
         minIntervalMs = 40,
-        // Must stay tiny. See HapticSpec.preferredMaxTier.
+        // 必ず小さいままにする。HapticSpec.preferredMaxTier を参照。
         preferredMaxTier = HapticTier.PrimitiveRich,
     )
 
@@ -67,7 +62,7 @@ object HapticTokens {
                 EnvelopePoint(0.00f, 0.65f, 20),
             ),
         ),
-        // Was CLICK; TICK sits higher and reads lighter for a small confirmation.
+        // 以前は CLICK。TICK のほうが高く、小さな確認としては軽く読める。
         primitives = PrimitiveSpec(listOf(PrimitiveStep(HapticPrimitive.Tick, 0.55f))),
         predefined = HapticPredefined.Tick,
         waveform = WaveformSpec(timings = listOf(12), amplitudes = listOf(80)),
@@ -76,7 +71,7 @@ object HapticTokens {
         preferredMaxTier = HapticTier.PrimitiveRich,
     )
 
-    /** Sharp attack, fast decay, no tail: the message left the finger. */
+    /** 立ち上がりが鋭く、すぐ減衰して尾を引かない。メッセージが指から離れた感じ。 */
     private val send = HapticSpec(
         envelope = EnvelopeSpec(
             initialSharpness = 0.90f,
@@ -85,8 +80,8 @@ object HapticTokens {
                 EnvelopePoint(0.00f, 0.79f, 22),
             ),
         ),
-        // Was CLICK, which carries a low body. TICK at a high scale keeps the punch
-        // without the weight underneath it.
+        // 以前は CLICK。あれは低い胴を持つ。TICK を強めに出すと、下に重さを
+        // 残さずに打感だけが残る。
         primitives = PrimitiveSpec(listOf(PrimitiveStep(HapticPrimitive.Tick, 0.85f))),
         predefined = HapticPredefined.Click,
         waveform = WaveformSpec(timings = listOf(14), amplitudes = listOf(150)),
@@ -96,11 +91,10 @@ object HapticTokens {
     )
 
     /**
-     * The hardest, most definite token. It must be recognisable without looking.
+     * 一番硬く、一番はっきりした触覚。見なくても分かる必要がある。
      *
-     * Kept on CLICK while everything around it moved to TICK: it is the one moment that
-     * should feel solid, and it needs to stay distinguishable from [send], which now sits
-     * right next to it in the same screen.
+     * 周りが TICK に移った中でこれだけ CLICK のまま。ここは確かに感じるべき瞬間で、
+     * しかも同じ画面で隣に並ぶ [send] と区別が付き続ける必要がある。
      */
     private val threshold = HapticSpec(
         envelope = EnvelopeSpec(
@@ -118,7 +112,7 @@ object HapticTokens {
         preferredMaxTier = HapticTier.PrimitiveRich,
     )
 
-    /** Deliberately a softer echo of [threshold] — same shape, less authority. */
+    /** [threshold] のわざと弱い反響。形は同じで、権威だけ落とす。 */
     private val thresholdRelease = HapticSpec(
         envelope = EnvelopeSpec(
             initialSharpness = 0.79f,
@@ -135,7 +129,36 @@ object HapticTokens {
         preferredMaxTier = HapticTier.PrimitiveRich,
     )
 
-    /** Slight bloom: rise into a commit. */
+    /**
+     * 送ったものが読まれた。
+     *
+     * アプリの中で一番小さい [selection] よりさらに弱くする。これは指に応えている
+     * わけではなく勝手に来るので、気付かなくても構わないものであるべきで、
+     * 気付けと迫るものであってはいけない。
+     *
+     * エンベロープ段より下に抑える。エンベロープの最小制御点20msでは [selection] より
+     * 長くなり、自分の操作より長く続く通知は、それより大事なものとして読まれる。
+     * そうではない。
+     */
+    private val readReceipt = HapticSpec(
+        envelope = EnvelopeSpec(
+            initialSharpness = 0.42f,
+            points = listOf(
+                EnvelopePoint(0.26f, 0.45f, 8),
+                EnvelopePoint(0.00f, 0.40f, 20),
+            ),
+        ),
+        primitives = PrimitiveSpec(listOf(PrimitiveStep(HapticPrimitive.Tick, 0.22f))),
+        predefined = HapticPredefined.Tick,
+        waveform = WaveformSpec(timings = listOf(10), amplitudes = listOf(45)),
+        onOff = WaveformSpec(timings = listOf(22), amplitudes = listOf(255)),
+        legacy = LegacySpec(listOf(0, 10)),
+        // 何人もいる会話では、既読がまとめて来ると振動もまとめて来る。多くて毎秒1回。
+        minIntervalMs = 1000,
+        preferredMaxTier = HapticTier.PrimitiveRich,
+    )
+
+    /** わずかに膨らませる。確定へ向かう立ち上がり。 */
     private val reaction = HapticSpec(
         envelope = EnvelopeSpec(
             initialSharpness = 0.51f,
@@ -157,7 +180,7 @@ object HapticTokens {
         minIntervalMs = 60,
     )
 
-    /** Rising pair. The contrast with [error] is what carries the meaning. */
+    /** 上がる2連。[error] との対比が意味を運ぶ。 */
     private val success = HapticSpec(
         envelope = EnvelopeSpec(
             initialSharpness = 0.65f,
@@ -177,11 +200,14 @@ object HapticTokens {
         ),
         predefined = HapticPredefined.DoubleClick,
         waveform = WaveformSpec(timings = listOf(12, 60, 14), amplitudes = listOf(110, 0, 190)),
+        // 上がる形を、強さが使えないので長さで表す。短い打、間、長い打。
+        // 間を詰めて、2つで1つの上向きの動作に読めるようにする。
+        onOff = WaveformSpec(timings = listOf(28, 45, 44), amplitudes = listOf(255, 0, 255)),
         legacy = LegacySpec(listOf(0, 14, 60, 18)),
         minIntervalMs = 150,
     )
 
-    /** Falling pair. */
+    /** 下がる2連。 */
     private val warning = HapticSpec(
         envelope = EnvelopeSpec(
             initialSharpness = 0.79f,
@@ -201,17 +227,19 @@ object HapticTokens {
         ),
         predefined = HapticPredefined.DoubleClick,
         waveform = WaveformSpec(timings = listOf(12, 100, 12), amplitudes = listOf(190, 0, 110)),
+        // 成功の鏡。長い打、広い間、短い打。間を広げるのは、同じ対を逆再生しただけに
+        // 聞こえないようにするため。
+        onOff = WaveformSpec(timings = listOf(44, 95, 26), amplitudes = listOf(255, 0, 255)),
         legacy = LegacySpec(listOf(0, 18, 100, 12)),
         minIntervalMs = 150,
     )
 
     /**
-     * Not "stronger" — congested. Three equal knocks that stop dead, at a lower sharpness
-     * than everything around it so it reads as dull rather than crisp. It should feel
-     * *blocked*.
+     * 「強い」ではなく詰まっている感じ。等しい打を3回で止め、sharpness は周りより
+     * 低くして硬さではなく鈍さに読ませる。**塞がっている**と感じるべき。
      *
-     * Its sharpness rose with the rest, but it stays below [success] on purpose: the gap
-     * between them is the meaning.
+     * 全体が上がったのに合わせて上げたが、[success] より下に置いてある。
+     * その差が意味そのもの。
      */
     private val error = HapticSpec(
         envelope = EnvelopeSpec(
@@ -227,7 +255,7 @@ object HapticTokens {
                 EnvelopePoint(0.00f, 0.51f, 14),
             ),
         ),
-        // Stays on CLICK: a dull knock is the point.
+        // CLICK のまま。鈍い打であることが要点。
         primitives = PrimitiveSpec(
             listOf(
                 PrimitiveStep(HapticPrimitive.Click, 0.80f),
@@ -247,15 +275,21 @@ object HapticTokens {
             timings = listOf(14, 46, 14, 46, 18),
             amplitudes = listOf(200, 0, 200, 0, 140),
         ),
+        // 成功と警告が2回のところ、こちらは3回。しかも最後が長すぎる。強いのではなく
+        // 詰まっている＝**止まった**と読ませたい。音量が1段しかないモーターでは、
+        // 長く続けるしか言い方が無い。
+        onOff = WaveformSpec(
+            timings = listOf(26, 38, 26, 38, 70),
+            amplitudes = listOf(255, 0, 255, 0, 255),
+        ),
         legacy = LegacySpec(listOf(0, 18, 46, 18, 46, 22)),
         minIntervalMs = 200,
     )
 
     /**
-     * Low, heavy, with a tail. Must never be mistaken for [send] or [success].
+     * 低く、重く、尾を引く。[send] や [success] と取り違えられてはいけない。
      *
-     * The only token that stays deliberately low. Everything else moved up, which makes
-     * this one stand out more than it did before rather than less.
+     * 意図的に低いままの唯一の触覚。他が上がったぶん、以前より目立つようになった。
      */
     private val destructive = HapticSpec(
         envelope = EnvelopeSpec(
@@ -265,8 +299,7 @@ object HapticTokens {
                 EnvelopePoint(0.00f, 0.41f, 45),
             ),
         ),
-        // API 30 has neither THUD nor LOW_TICK, so weight is approximated by a hit that
-        // immediately falls away.
+        // API 30 には THUD も LOW_TICK も無いので、当たってすぐ落ちる形で重さを代用する。
         primitives = PrimitiveSpec(
             listOf(
                 PrimitiveStep(HapticPrimitive.Click, 0.90f),
@@ -288,6 +321,7 @@ object HapticTokens {
         HapticToken.Threshold to threshold,
         HapticToken.ThresholdRelease to thresholdRelease,
         HapticToken.Reaction to reaction,
+        HapticToken.ReadReceipt to readReceipt,
         HapticToken.Success to success,
         HapticToken.Warning to warning,
         HapticToken.Error to error,

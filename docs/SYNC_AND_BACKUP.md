@@ -163,7 +163,7 @@ latency / success・failure / crash / version / haptics usage
 
 > **「クラウドへ何を保存しているのか分からない」状態にしない。**
 
-設定画面に `Account & Cloud`（または `Echo Cloud`）を設ける。
+設定画面に `Account & Cloud`（または `Rinowa Cloud`）を設ける。
 
 表示候補:
 

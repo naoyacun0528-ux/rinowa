@@ -1,27 +1,243 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Asked for at first launch, unlike the Rinowa Direct permissions below. A messenger that
+      cannot notify is not doing its job, and everybody already understands why a chat app
+      wants this — the context is the app itself. "Nearby devices", asked at the same
+      moment, would not be.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Rinowa Direct。ここで宣言し、要求するのは Direct を初めて使うときだけ。起動時では
+      ない。全部断っても Rinowa はクラウド経由で完全に動く。Direct は最適化であって
+      前提ではない。docs/DIRECT_ARCHITECTURE.md §16。
+
+      Bluetooth と Wi-Fi の探索に付けた neverForLocation は飾りではない。近くに何が
+      あるかから位置を割り出さない、と OS と利用者に伝えるもの。Rinowa は誰がどこに
+      いるかを使わない。
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADVERTISE"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+
+    <!-- Android 12 より前は旧 Bluetooth と、避けようがなく位置情報が要った。 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="32" />
+
+    <!--
+      Android 16 のローカルネットワーク保護。API 36 で入り、同じ回線の他の端末と話す
+      ものには必須。Direct の両方の段が該当する（NSD はもちろん、Nearby も媒体として
+      Wi-Fi を掴みに行くため）。
+
+      見つけ方を残しておく。無いと Nearby は status 8（INTERNAL_ERROR）で失敗し、
+      それは何も言っていない。Play services はログに本当の理由を書いたうえで、それに
+      対応するコードがまだ無いと認める:「Need to add corresponding status code for
+      missing permission android.permission.ACCESS_LOCAL_NETWORK」。その行を読むまでに
+      Bluetooth と権限で2回外した。
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      広告 ID を要求しない。
+
+      この2つは Firebase の計測ライブラリが自分のマニフェストで宣言してくる。
+      Rinowa に広告は無く、広告 ID はアプリをまたぐ識別子なので、収集を切るだけでなく
+      権限そのものを外す。切ってあることと、要求していないことは別の話で、
+      ストアの権限一覧に出るのは後者。
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+
+    <!--
+        通話。
+
+        RECORD_AUDIO は実行時に求める。MODIFY_AUDIO_SETTINGS が無いと
+        受話口とスピーカーを切り替えられず、通話が常にスピーカーになる。
+
+        FOREGROUND_SERVICE_MICROPHONE は Android 14 以降で必須。型の宣言が無い
+        前面サービスはマイクを掴めない。
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!--
+        ビデオ通話。required=false にしてあるのは、カメラの無い端末でも
+        音声通話とメッセージは完全に動くから。ここを true にすると
+        そういう端末はインストールすらできなくなる。
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+
+    <!--
+      allowBackup="false": nothing goes to Android's cloud backup. Conversations, settings
+      and sticker ownership restore from the account instead (docs/SYNC_AND_BACKUP.md), and
+      the local sticker directory is a re-fetchable materialisation rather than data. Letting
+      Android back either of them up would put message content somewhere Rinowa does not
+      control and cannot reason about.
+    -->
     <application
-        android:name=".EchoApplication"
+        android:name=".RinowaApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Echo.Starting">
+        android:theme="@style/Theme.Rinowa.Starting">
 
+        <!--
+          Analytics collects only what docs/ANALYTICS_SCHEMA.md defines.
+
+          - The advertising id is never collected: Rinowa has no advertising, and it is a
+            cross-app identifier.
+          - Automatic screen reporting is off. Firebase's built-in screen_view sends the
+            Activity class name; Rinowa reports its own ScreenId enum, so the schema stays
+            the single description of what is measured.
+        -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_automatic_screen_reporting_enabled"
+            android:value="false" />
+
+        <!--
+          Data-only messages, so this always runs and builds the notification itself.
+          See RinowaMessagingService — the recipient's own preference decides whether the
+          message text is shown, and a server-drawn notification could not honour it.
+        -->
+        <service
+            android:name=".notifications.RinowaMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!--
+            singleTop。standard のままだと、通知の CLEAR_TOP が Activity の
+            再生成を起こし、通話中のコンポジションごと作り直される。
+            「通知から終了しても相手に届かない」はそれが原因だった。
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Echo.Starting">
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
+            android:theme="@style/Theme.Rinowa.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <!--
+            鳴り続ける役。通知チャンネルの音は1回しか鳴らないので、
+            リングトーンのループとバイブの繰り返しはここが持つ。
+
+            型が mediaPlayback なのは、実際にやっているのが音の再生だから。
+            phoneCall のほうが名前は合うが、Android 14 以降は Telecom 登録済みの
+            通話アプリであることが条件で、Rinowa はまだそうではない（C-4）。
+            通らない型を名乗ると、サービスが起動せず「鳴らない」になる。
+        -->
+        <service
+            android:name=".calls.IncomingCallService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!--
+            通話が続いている間、プロセスを生かしておく役。
+
+            型は microphone、ビデオ通話では camera も足す。実際に掴んでいるものを
+            そのまま名乗る。Android 14 以降は宣言と実態が食い違う前面サービスを
+            拒否するので、ここを盛ると「バックグラウンドにしたら通話が切れる」に
+            なる——このサービスが防ごうとしている当の失敗そのもの。
+
+            IncomingCallService と型が違うのは、あちらは鳴らしているだけで
+            マイクを掴んでいないから。
+        -->
+        <service
+            android:name=".calls.OngoingCallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera" />
+
+        <!--
+            ピクチャインピクチャの操作ボタンの受け口。
+
+            小窓はタップを受け取らない（触ると「窓を広げる」の意味になる）ので、
+            ボタンはシステムが RemoteAction から描き、押すと PendingIntent が飛ぶ。
+            ブロードキャストにしてあるのは、ミュートのためにアプリを前面に
+            戻してしまっては小窓にした意味が無いから。
+
+            exported=false: 他アプリから通話を操作できてはいけない。
+        -->
+        <receiver
+            android:name=".calls.CallActionReceiver"
+            android:exported="false" />
+
+        <!--
+            着信画面。ロック画面の上に出す必要があるので独立した Activity にしてある。
+            showOnLockScreen / turnScreenOn は Activity 側で設定する。
+
+            exported=false: 起動するのは自分の full-screen intent だけ。
+            他アプリから着信画面を出せてはいけない。
+        -->
+        <activity
+            android:name=".calls.IncomingCallActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+        <!--
+            共有時に1枚だけを渡すための入口。content:// の URI は1つの Intent の
+            寿命の間だけ有効で、相手アプリはそのファイル以外に触れない。
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

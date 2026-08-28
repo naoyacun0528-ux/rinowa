@@ -23,24 +23,25 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import blog.nextlab.echo.model.MessageId
 import blog.nextlab.echo.core.designsystem.BackdropState
-import blog.nextlab.echo.core.designsystem.EchoMotion
-import blog.nextlab.echo.core.designsystem.EchoTheme
+import blog.nextlab.echo.core.designsystem.RinowaMotion
+import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.FrostedBar
 import blog.nextlab.echo.core.designsystem.preferHighFrameRate
 import blog.nextlab.echo.model.ReactionPalette
 import kotlin.math.roundToInt
 
 /**
- * Geometry for the reaction picker.
+ * リアクション選択の座標計算。
  *
- * Deliberately computed rather than measured: the finger is already down when the picker
- * appears, so hit-testing cannot wait for a layout pass. Both the drawing and the
- * pointer-to-index mapping read from here, which keeps them from drifting apart.
+ * 測るのではなく計算する。選択が出る時点で指はもう下りていて、当たり判定はレイアウトを
+ * 待てない。描画と「指の位置→添字」の対応の両方がここを読むので、2つがずれない。
  */
 object ReactionPickerMetrics {
     val itemSize: Dp = 40.dp
@@ -59,7 +60,7 @@ object ReactionPickerMetrics {
         return (anchorCenterX - widthPx / 2f).coerceIn(marginPx, max)
     }
 
-    /** @return palette index under [pointer], or -1 when the finger is off the picker. */
+    /** @return [pointer] の下のパレット添字。選択の外なら -1。 */
     fun indexFor(
         pointer: Offset,
         pillLeftPx: Float,
@@ -84,19 +85,19 @@ object ReactionPickerMetrics {
 
 @Immutable
 data class ReactionPickerState(
-    val messageId: Long,
+    val messageId: MessageId,
     val anchorBounds: Rect,
     val pillLeftPx: Float,
     val pillTopPx: Float,
     val highlightedIndex: Int,
     val alreadyReactedIndex: Int?,
     /**
-     * True once the finger has lifted without choosing anything.
+     * 何も選ばずに指を離したら true。
      *
-     * Sliding to a reaction without lifting is the fast path, but it is not discoverable
-     * — nothing on screen says "keep holding". So lifting does not dismiss: the picker
-     * latches open and becomes tappable. Both ways work, and the quick one is there to
-     * be found rather than required.
+     * 離さずに滑らせて選ぶのが速い道だが、それは見つけにくい（「押したままで」と
+     * 画面のどこにも書いていない）。なので離しても消さない。開いたまま留まり、
+     * 押して選べるようになる。どちらでも動き、速いほうは見つけてもらうためにあって、
+     * 必須ではない。
      */
     val latched: Boolean = false,
 )
@@ -106,12 +107,47 @@ fun ReactionPickerOverlay(
     state: ReactionPickerState,
     backdrop: BackdropState,
     onSelect: (Int) -> Unit,
+    /** 自分のメッセージのときだけ、列の上に出る。他人のものでは null。 */
+    onRetract: (() -> Unit)? = null,
 ) {
-    val colors = EchoTheme.colors
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
     val pill = RoundedCornerShape(percent = 50)
 
-    // Always frosted. It only ever appears while the thread is still, so the capture
-    // costs nothing that a fling would have needed.
+    /**
+     * 取り消し。リアクションの上に置く。
+     *
+     * 同じ長押しに入れているのは、同じ問い（このメッセージをどうしたいか）だから。
+     * 2つのジェスチャーに分けると、どちらがどちらかを覚える必要が出る。下ではなく上に
+     * 置くのは、稀で重いほうだから。リアクションへ滑る指が通り抜ける場所に置かない。
+     */
+    if (onRetract != null) {
+        // 自分の高さ＋間隔をピクセルで。最初の版は dp のつもりで素の `56f` を使っていて、
+        // 2.6倍の画面では必要な距離の1/5しかなく、リアクションの上ではなく重なって出ていた。
+        val liftPx = with(LocalDensity.current) { (RETRACT_HEIGHT + RETRACT_GAP).toPx() }
+
+        Box(
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        state.pillLeftPx.roundToInt(),
+                        (state.pillTopPx - liftPx).roundToInt(),
+                    )
+                }
+                .height(RETRACT_HEIGHT)
+                .shadow(10.dp, RoundedCornerShape(14.dp), clip = false)
+                .clip(RoundedCornerShape(14.dp))
+                .background(colors.surfaceRaised)
+                .clickable(onClick = onRetract)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = "送信を取り消す", style = type.label, color = colors.danger)
+        }
+    }
+
+    // 常にすりガラス。スレッドが止まっている間しか出ないので、フリック中に必要な
+    // 費用は発生しない。
     FrostedBar(
         state = backdrop,
         tint = colors.barGlassTint,
@@ -120,7 +156,7 @@ fun ReactionPickerOverlay(
         frostAmount = { 1f },
         invalidateOn = { state.highlightedIndex },
         modifier = Modifier
-            // On screen only while the finger is choosing, and animating the whole time.
+            // 指が選んでいる間だけ画面にあり、その間ずっと動いている。
             .preferHighFrameRate(true)
             .offset { IntOffset(state.pillLeftPx.roundToInt(), state.pillTopPx.roundToInt()) }
             .height(ReactionPickerMetrics.height)
@@ -157,15 +193,15 @@ private fun ReactionPickerItem(
     alreadyChosen: Boolean,
     onClick: (() -> Unit)?,
 ) {
-    val colors = EchoTheme.colors
+    val colors = RinowaTheme.colors
     val scale by animateFloatAsState(
         targetValue = if (highlighted) 1.45f else 1f,
-        animationSpec = EchoMotion.popSpring(),
+        animationSpec = RinowaMotion.popSpring(),
         label = "reactionScale",
     )
     val lift by animateFloatAsState(
         targetValue = if (highlighted) -10f else 0f,
-        animationSpec = EchoMotion.popSpring(),
+        animationSpec = RinowaMotion.popSpring(),
         label = "reactionLift",
     )
 
@@ -181,3 +217,8 @@ private fun ReactionPickerItem(
         Text(text = emoji, fontSize = 24.sp, modifier = Modifier.scale(scale))
     }
 }
+
+private val RETRACT_HEIGHT: Dp = 42.dp
+
+/** 取り消しと、その下のリアクションの間の余白。 */
+private val RETRACT_GAP: Dp = 10.dp

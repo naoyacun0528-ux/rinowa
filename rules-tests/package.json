@@ -1,0 +1,14 @@
+{
+  "name": "rinowa-rules-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Executable proof that firestore.rules keeps message bodies to their participants.",
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project echo-rules-test \"node run.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0"
+  }
+}

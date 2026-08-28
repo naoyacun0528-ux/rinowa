@@ -29,4 +29,6 @@ dependencies {
     api(libs.androidx.compose.runtime)
 
     testImplementation(libs.junit)
+    // 調整表を JSON で書き出す。Android 同梱の org.json は単体テストでは空の殻。
+    testImplementation(libs.json)
 }

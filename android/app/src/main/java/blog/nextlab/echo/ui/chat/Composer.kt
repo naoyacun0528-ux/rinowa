@@ -11,7 +11,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,9 +54,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import blog.nextlab.echo.core.designsystem.EchoDimens
-import blog.nextlab.echo.core.designsystem.EchoMotion
-import blog.nextlab.echo.core.designsystem.EchoTheme
+import blog.nextlab.echo.core.designsystem.RinowaDimens
+import blog.nextlab.echo.core.designsystem.RinowaMotion
+import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.GlassSurface
 import blog.nextlab.echo.core.designsystem.GlassTone
 import blog.nextlab.echo.core.designsystem.glassFace
@@ -76,12 +75,12 @@ fun Composer(
     onToggleStickerPicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
     val canSend = text.isNotBlank()
 
-    // No background: the frosted bar behind it supplies one. Painting an opaque colour
-    // here would sit on top of the blur and hide the very thing it exists to show.
+    // 背景を敷かない。後ろのすりガラスのバーが敷いている。ここで不透明な色を塗ると
+    // ぼかしの上に乗り、見せるためにあるものを隠すことになる。
     Column(modifier = modifier.fillMaxWidth()) {
         AnimatedVisibility(
             visible = replyingTo != null,
@@ -122,7 +121,7 @@ fun Composer(
             ) { stroke, tint ->
                 val w = size.width
                 val h = size.height
-                // A sticker: a rounded square with a face, and one corner peeled back.
+                // スタンプ。角を丸めた四角に顔、片方の角がめくれている。
                 val body = Path().apply {
                     moveTo(w * 0.22f, h * 0.30f)
                     lineTo(w * 0.22f, h * 0.70f)
@@ -147,9 +146,9 @@ fun Composer(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = EchoDimens.composerMinHeight, max = 140.dp)
-                    // Glass, but not a GlassSurface: a field takes focus, it does not
-                    // press. Swelling under the finger would say the wrong thing.
+                    .heightIn(min = RinowaDimens.composerMinHeight, max = 140.dp)
+                    // ガラスだが GlassSurface ではない。入力欄は焦点を受けるもので、
+                    // 押されるものではない。指の下でふくらむと違うことを言ってしまう。
                     .glassFace(shape = RoundedCornerShape(22.dp), elevation = 2.dp)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 contentAlignment = Alignment.CenterStart,
@@ -179,41 +178,40 @@ fun Composer(
 
 @Composable
 private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
-    val colors = EchoTheme.colors
+    val colors = RinowaTheme.colors
     val scope = rememberCoroutineScope()
 
     val readyScale by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.82f,
-        animationSpec = EchoMotion.commitSpring(),
+        animationSpec = RinowaMotion.commitSpring(),
         label = "sendReady",
     )
     val alpha by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.35f,
-        animationSpec = EchoMotion.commitSpring(),
+        animationSpec = RinowaMotion.commitSpring(),
         label = "sendAlpha",
     )
 
     var pressed by remember { mutableStateOf(false) }
     val pressScale by animateFloatAsState(
         targetValue = if (pressed) 1.09f else 1f,
-        animationSpec = EchoMotion.popSpring(),
+        animationSpec = RinowaMotion.popSpring(),
         label = "sendPress",
     )
 
-    // Fired once on send: a quick inflate, then a spring back. The message leaving and
-    // the button letting go are the same motion.
+    // 送信で1回。素早くふくらんで戻る。メッセージが出ていくのと、ボタンが手を離すのは
+    // 同じ動き。
     val launchPulse = remember { Animatable(1f) }
 
     Box(
         modifier = Modifier
-            .size(EchoDimens.composerMinHeight)
+            .size(RinowaDimens.composerMinHeight)
             .scale(readyScale * pressScale * launchPulse.value)
             .shadow(3.dp, CircleShape, clip = false, spotColor = colors.glassShadow)
             .clip(CircleShape)
-            // Opaque throughout. Fading with alpha let the elevation shadow read through
-            // the fill, which showed up as a faceted silhouette inside the circle — the
-            // shadow tessellation, seen through its own button. Mixing toward the page
-            // colour looks the same and has nothing behind it to reveal.
+            // 最後まで不透明。アルファで薄くすると影が塗りを透けて、円の中に
+            // 多角形の輪郭が見えた（影のシルエットを、そのボタン越しに見ていた）。
+            // 紙の色へ混ぜれば見た目は同じで、透ける下地が無い。
             .background(
                 Brush.verticalGradient(
                     listOf(
@@ -242,7 +240,7 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
                     onTap = {
                         scope.launch {
                             launchPulse.animateTo(1.20f, tween(70))
-                            launchPulse.animateTo(1f, EchoMotion.popSpring())
+                            launchPulse.animateTo(1f, RinowaMotion.popSpring())
                         }
                         onClick()
                     },
@@ -258,7 +256,7 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
             )
             val w = size.width
             val h = size.height
-            // Upward arrow: sending is "away from me", not "to the right".
+            // 上向きの矢印。送るのは「自分から離れる」ことで、「右へ」ではない。
             val path = Path().apply {
                 moveTo(w * 0.5f, h * 0.80f)
                 lineTo(w * 0.5f, h * 0.20f)
@@ -273,8 +271,8 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun ReplyBanner(replyingTo: Message?, onCancel: () -> Unit) {
-    val colors = EchoTheme.colors
-    val type = EchoTheme.type
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
     val message = replyingTo ?: return
 
     Row(
@@ -324,10 +322,10 @@ private fun ReplyBanner(replyingTo: Message?, onCancel: () -> Unit) {
 }
 
 /**
- * A tappable glyph drawn with Canvas.
+ * Canvas で描いた、押せる絵柄。
  *
- * Prototype 0 draws its own icons rather than pulling in the Material icon set, which
- * would bring a Material look with it.
+ * Prototype 0 はアイコンを自前で描く。Material のアイコン集を入れると、
+ * Material の見た目も一緒に付いてくる。
  */
 @Composable
 private fun IconCircleButton(
@@ -336,14 +334,14 @@ private fun IconCircleButton(
     tint: Color? = null,
     draw: DrawScope.(stroke: Stroke, tint: Color) -> Unit,
 ) {
-    val colors = EchoTheme.colors
+    val colors = RinowaTheme.colors
     val resolvedTint = tint ?: colors.textSecondary
     val description = contentDescription
 
     GlassSurface(
         modifier = Modifier
-            .size(EchoDimens.composerMinHeight)
-            .defaultMinSize(EchoDimens.touchTarget, EchoDimens.touchTarget)
+            .size(RinowaDimens.composerMinHeight)
+            .defaultMinSize(RinowaDimens.touchTarget, RinowaDimens.touchTarget)
             .semantics { this.contentDescription = description },
         shape = CircleShape,
         tone = GlassTone.Control,

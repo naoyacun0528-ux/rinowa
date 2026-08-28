@@ -1,0 +1,496 @@
+rules_version = '2';
+
+// Rinowa — Cloud Firestore Security Rules
+//
+// この1ファイルが docs/PRIVACY_PRINCIPLES.md の第1原則を「構造で」保証する場所である。
+//
+//   メッセージ本文を読めるのは、その会話の参加者だけ。
+//
+// ================================================================================
+// 管理者に特権的な読み取り経路は存在しない
+// ================================================================================
+//
+// このファイルのどこにも、次のようなものは無い。書き足してもいけない。
+//
+//   ❌ request.auth.uid == 'ADMIN_UID_...'
+//   ❌ request.auth.token.admin == true
+//   ❌ match /{document=**} { allow read: if isStaff(); }
+//
+// 「サポート対応のため」「不具合調査のため」「AIに分析させるため」——
+// どの理由でも、本文への管理者読み取りを開けてはいけない。
+// 開発者が困るというのは、この制約を緩める理由にならない。
+//
+// なお Firebase Admin SDK（サーバー側の資格情報）はこのルールを迂回できる。
+// だからこそ Rinowa は **Admin SDK を使うサーバーを持たない**。Cloud Functions を
+// 導入する日が来ても、conversations 配下へ触れる関数を書いてはいけない。
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // ------------------------------------------------------------------ users
+    //
+    // get は許可、list は禁止。uid は推測できないので、知っている相手の
+    // プロフィールは引けるが、利用者一覧を作ることはできない。
+    // 「誰が Rinowa を使っているか」を列挙させないための分離である。
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create, update: if signedIn()
+        && userId == uid()
+        && incoming().keys().hasOnly([
+             'displayName', 'photoUrl', 'photoHash', 'statusMessage',
+             'inviteCode', 'createdAt', 'updatedAt'
+           ])
+        && incoming().displayName is string
+        && incoming().displayName.size() > 0
+        && incoming().displayName.size() <= 40
+        && (!('statusMessage' in incoming())
+            || incoming().statusMessage == null
+            || (incoming().statusMessage is string
+                && incoming().statusMessage.size() <= 120));
+
+      allow delete: if signedIn() && userId == uid();
+
+      // プロフィール画像。本文とは性質が違う——本人が「見せるために」置くもの。
+      // 友達でなくても、招待コードを知って会話を始めた相手には見える必要がある。
+      //
+      // 本体ドキュメントと分けているのは、画像が数十KBあるためである。
+      // users/{uid} は名前を引くたびに読まれるので、そこに画像を混ぜると
+      // 一覧を開くだけで人数分の画像を落とすことになる。
+      match /public/{docId} {
+        allow read: if signedIn();
+        // **項目を絞る。** 大きさだけ見て中身を見ていなかったので、署名済みの誰もが
+        // 自分の公開文書を好きな形にできた。読めるのは全利用者なので、
+        // 「誰でも読める置き場」として使える状態だった。写真以外は入れない。
+        allow write: if signedIn()
+          && userId == uid()
+          && incoming().keys().hasOnly(['bytes', 'updatedAt'])
+          && (!('bytes' in incoming())
+              // 256px の正方形に縮めてから上げる。上限はその余裕分。
+              || (incoming().bytes is bytes && incoming().bytes.size() <= 262144));
+      }
+
+      // 端末をまたいで戻すもの。docs/SYNC_AND_BACKUP.md §2 の「Cloud sync」列。
+      // 本人以外は読めない。設定は本人のものであって、公開情報ではない。
+      match /settings/{docId} {
+        allow read, write: if signedIn() && userId == uid();
+      }
+
+      // 所有スタンプ・お気に入り・履歴。**画像そのものではなく参照情報**。
+      match /stickerLibrary/{docId} {
+        allow read, write: if signedIn() && userId == uid();
+      }
+
+      // この人が使っている端末。プッシュ通知の送り先であり、
+      // 将来 Rinowa Direct の Trusted Device 公開鍵もここに入る。
+      //
+      // 本人しか読めない。「誰が何台持っているか」は本人以外に関係が無いうえ、
+      // FCM トークンが読めると他人の端末へ通知を撃てるようになる。
+      //
+      // push サーバーはサービスアカウントで動くためこのルールを迂回するが、
+      // server/push.php はここと conversations しか読まない。
+      // → docs/DIRECT_ARCHITECTURE.md §5.2
+      match /devices/{deviceId} {
+        allow read, write: if signedIn() && userId == uid();
+      }
+
+      // ---------------------------------------------------------------- E2EE
+      //
+      // 暗号の身元。**ここだけは誰でも読めます。**
+      //
+      // 公開鍵だからです。相手の端末鍵が読めなければ、その相手に向けて
+      // 暗号化できません。読めないようにすると E2EE が成立しません。
+      // 上の devices/ が本人しか読めないのと対照的ですが、あちらは FCM トークン
+      // ——他人に渡ると通知を撃てる秘密——なので、性質が逆です。
+      //
+      // 混ぜずに別コレクションにしてあるのはそのためです。
+      // 「読めるもの」と「読めてはいけないもの」を同じ文書に入れない。
+      match /cryptoDevices/{deviceId} {
+        allow read: if signedIn();
+        allow write: if signedIn()
+          && userId == uid()
+          && incoming().keys().hasOnly(['deviceId', 'json', 'updatedAt'])
+          && incoming().deviceId is string
+          && incoming().deviceId.size() <= 64
+          // 署名つきの鍵束をそのまま保管する。**組み立て直してはいけない。**
+          // 署名は特定のバイト列に対して付いているので、フィールドに分解して
+          // 戻すと空白や順序が変わり、相手側の検証が落ちる——しかも
+          // 「鍵が壊れている」ではなく「なりすましの疑い」として落ちる。
+          && incoming().json is string
+          && incoming().json.size() <= 8192;
+      }
+
+      // ワンタイム鍵。相手が **1つ取って消す**。
+      //
+      // **端末ごとに分けて置きます。** 以前は利用者ごとに1つの束で、鍵 id を
+      // 文書 id にしていました。Olm の鍵 id は端末の中で数える連番なので、同じ
+      // 利用者の2台目が公開した瞬間に1台目の鍵を上書きします。取り違え以前に
+      // 在庫が壊れ、そのうえ取得側は端末を指定しても別の端末の鍵を受け取ります。
+      // どちらも「2台目を持った人だけ、たまに届かない」形で出ます。
+      //
+      // 誰でも読めて誰でも消せます。サーバの仲介が無い以上、
+      // 「取得と削除」を相手にやってもらうしかないためです。
+      // 取得は必ずトランザクションで行うこと——同じ鍵が2人に渡ると、
+      // その2人に対して同じ鍵材料が使われます。
+      //
+      // **既知の弱点: 誰でも他人の鍵を空にできます。** 枯渇させる嫌がらせが可能。
+      // Olm の fallback key（枯渇時に使う再利用可能な鍵）がこれを吸収します。
+      // レート制限はサーバが無いと書けないので、Prototype 2 の課題として残します。
+      match /cryptoDevices/{deviceId}/oneTimeKeys/{keyId} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && userId == uid()
+          && incoming().keys().hasOnly(['json'])
+          && incoming().json is string
+          && incoming().json.size() <= 2048;
+        allow delete: if signedIn();
+      }
+
+      // to-device の受信箱。**書けるが読めない。**
+      //
+      // 誰でも投函できて、取り出せるのは本人だけ。郵便受けと同じ形です。
+      // 鍵の配布はここを通ります。中身は既に暗号化されているので、
+      // 規則が守るのは「他人の受信箱を覗けないこと」だけで足ります。
+      //
+      // senderId を uid に固定しているのは差出人の詐称を防ぐためです。
+      // 中身は読めなくても、誰から来たかは受信側の判断材料になります。
+      match /toDevice/{eventId} {
+        // The owner reads their mailbox. The sender may read back **only what they wrote**,
+        // which lets a device confirm its own delivery.
+        //
+        // This gives the sender nothing they did not already have — they composed the
+        // payload — and it closes a real hole in being able to test the thing at all: a
+        // write that succeeds and a mailbox that reads empty were indistinguishable, and
+        // there was no way from inside the app to tell which end was wrong.
+        allow read: if signedIn()
+          && (userId == uid() || resource.data.senderId == uid());
+        allow delete: if signedIn() && userId == uid();
+        allow create: if signedIn()
+          && incoming().senderId == uid()
+          && incoming().body is string
+          && incoming().body.size() <= 65536;
+        // 投函したものを後から書き換えられてはいけない。
+        allow update: if false;
+      }
+    }
+
+    // ------------------------------------------------------------ inviteCodes
+    //
+    // 相手を探す唯一の経路。コードを知っている人だけが引ける。
+    // メールアドレスで検索させない: アドレスから利用有無が判定できてしまう。
+    match /inviteCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && incoming().uid == uid();
+      allow delete: if signedIn() && resource.data.uid == uid();
+      allow update: if false;
+    }
+
+    // ---------------------------------------------------------- conversations
+    match /conversations/{conversationId} {
+
+      function isMember() {
+        return signedIn() && uid() in resource.data.memberIds;
+      }
+
+      function staysMember() {
+        return signedIn() && uid() in incoming().memberIds;
+      }
+
+      function touches(field) {
+        return incoming().diff(resource.data).affectedKeys().hasAny([field]);
+      }
+
+      /**
+       * 参加者の変更として認めるのは「自分が抜ける」の1手だけ。
+       *
+       * 作った後に人を足す経路はアプリに無い（direct は2人で固定、group は作成時に
+       * 決まる）。それでも規則の側で塞いでおかないと、参加者の1人が誰でも会話に
+       * 入れられる。入れられた側はその瞬間から本文を読み、書ける。
+       *
+       * 承認については「自分の分しか足せない」と書いてあったのに、参加そのものが
+       * 空いていた。承認を偽装できないことは、参加を偽装できるなら意味が無い。
+       *
+       * 増えていないこと・減ったのが自分だけであることの両方を見る。片方だと
+       * 「自分を抜いて他人を入れる」差し替えが通る。
+       */
+      function onlyLeftMyself() {
+        return uid() in resource.data.memberIds
+          && !(uid() in incoming().memberIds)
+          && incoming().memberIds.toSet()
+               .difference(resource.data.memberIds.toSet()).size() == 0
+          && resource.data.memberIds.toSet()
+               .difference(incoming().memberIds.toSet()).hasOnly([uid()]);
+      }
+
+      // read は get と list の両方を覆う。list の場合 Firestore はクエリが
+      // この条件を必ず満たすと証明できることを要求するため、クライアントは
+      // whereArrayContains("memberIds", uid) を付けざるを得ない。
+      // 「全会話を舐める」クエリは、書いても実行時に拒否される。
+      allow read: if isMember();
+
+      allow create: if staysMember()
+        && incoming().memberIds.size() >= 2
+        && incoming().memberIds.size() <= 100
+        && incoming().type in ['direct', 'group']
+        // 作成者だけが最初から承認済み。相手を勝手に承認済みにはできない。
+        && incoming().acceptedBy == [uid()];
+
+      // 参加者の書き換えとタイトル・最終メッセージ要約のみ。
+      // 作成者や種別は後から変えられない。
+      allow update: if isMember()
+        && incoming().diff(resource.data).affectedKeys().hasOnly([
+             'title', 'memberIds', 'acceptedBy', 'lastMessage', 'lastMessageAt', 'updatedAt'
+           ])
+        // acceptedBy に触れるのは自分の分だけ。
+        // 他人を「承認した」ことにされると、承認という行為が意味を失う。
+        && (!touches('acceptedBy')
+            || incoming().acceptedBy.toSet()
+                 .difference(resource.data.acceptedBy.toSet()).hasOnly([uid()]))
+        // 参加者に触れるなら、自分が抜けるとき以外は認めない。
+        && (!touches('memberIds') || onlyLeftMyself())
+        // 一覧に出る最後の1行。**中身を検査していなかった。**
+        //
+        // 参加者は誰でも、任意の文と任意の送信者名でここを書けた。会話を開けば
+        // 本物のスレッドが出るので本文は偽装できないが、**一覧には送っていない文が
+        // 相手の名前で並ぶ**。暗号化したメッセージのプレビューは本来「🔒」なので、
+        // そこに平文が出ること自体が嘘になる。
+        //
+        // 送信者は自分に限る。自分が送った1行だけを書ける。
+        && (!touches('lastMessage')
+            || incoming().lastMessage == null
+            || (incoming().lastMessage.keys().hasOnly(['preview', 'senderId', 'kind', 'sentAt'])
+                && incoming().lastMessage.senderId == uid()
+                && incoming().lastMessage.preview is string
+                && incoming().lastMessage.preview.size() <= 200
+                && incoming().lastMessage.kind is string
+                && incoming().lastMessage.kind.size() <= 16));
+
+      // 会話は消さない。抜けるのは memberIds の update である。
+      // 片方が消せてしまうと、相手の履歴まで巻き添えで消える。
+      allow delete: if false;
+
+      // ---------------------------------------------------------------- calls
+      //
+      // 通話の呼び出しと、SDP / ICE のやりとり。
+      // 本文と同じく、会話の参加者以外は読めない。
+      match /calls/{callId} {
+
+        function callParent() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        function callMember() {
+          return signedIn() && uid() in callParent().memberIds;
+        }
+
+        allow read: if callMember();
+
+        allow create: if callMember()
+          && incoming().callerId == uid()
+          && incoming().kind in ['audio', 'video']
+          && incoming().state == 'ringing';
+
+        // 状態だけ。誰が誰にかけたかは後から書き換えられない。
+        allow update: if callMember()
+          && incoming().diff(resource.data).affectedKeys()
+               .hasOnly(['state', 'endedAt', 'endReason', 'answeredBy']);
+
+        // 通話が終わったら SDP と ICE は消す。残す理由が無い。
+        allow delete: if callMember();
+
+        // 自分の枠にしか書けない。ここが要。
+        // 他人の signals を書けると、自分の SDP を相手の枠に入れて
+        // **通話を横取りできる**。リアクションで「自分のキーだけ」としたのと同じ規則。
+        match /signals/{who} {
+          allow read: if callMember();
+          allow write: if callMember() && who == uid();
+        }
+      }
+      match /messages/{messageId} {
+
+        function parent() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        function memberOfParent() {
+          return signedIn() && uid() in parent().memberIds;
+        }
+
+        allow read: if memberOfParent();
+
+        allow create: if memberOfParent()
+          && incoming().senderId == uid()
+          && incoming().kind in ['text', 'sticker', 'image', 'call', 'enc']
+          // 本文は 4000 字まで。上限が無いとストレージ濫用の入口になる。
+          && (incoming().kind != 'text'
+              || (incoming().text is string && incoming().text.size() <= 4000))
+          && (incoming().kind != 'sticker' || incoming().stickerId is string)
+          // 写真。文書が運ぶのは ID と形と極小サムネイルだけで、画像本体は入らない。
+          //
+          // mediaThumb に 8KB の上限を置くのが要。ここは「画像の一部を文書に入れる」
+          // 唯一の例外なので、上限が無ければこの穴から画像を丸ごと押し込める。
+          // mediaId は SHA-256 の16進なので長さは必ず 64。
+          && (incoming().kind != 'image'
+              || (incoming().mediaId is string
+                  && incoming().mediaId.size() == 64
+                  && incoming().mediaW is int && incoming().mediaW > 0
+                  && incoming().mediaH is int && incoming().mediaH > 0
+                  && incoming().mediaBytes is int && incoming().mediaBytes >= 0
+                  && incoming().mediaThumb is bytes
+                  && incoming().mediaThumb.size() <= 8192))
+          // 暗号化されたメッセージ。
+          //
+          // **規則はここで本文を検査できません。できないことが正しい状態です。**
+          // 中身は Megolm の暗号文で、鍵は会話の参加者の端末にしかありません。
+          // サーバも管理者も、この文書から本文を取り出せません。
+          //
+          // だからここで守れるのは形と大きさだけです。長さの上限は残します——
+          // 検査できないことと、いくらでも書けることは別だからです。
+          // 447 B が 24 B の本文の実測値なので、4000 字ぶんに相当する余裕を見て 64 KB。
+          && (incoming().kind != 'enc'
+              || (incoming().ciphertext is string
+                  && incoming().ciphertext.size() > 0
+                  && incoming().ciphertext.size() <= 65536))
+          // 通話の記録。本文を持たないので中身は列挙値と秒数だけ。
+          //
+          // callSeconds に上限を置くのは、無制限だと「1兆秒の通話」を書けてしまい、
+          // 記録が主張になるから。24時間を超える通話は無い。
+          && (incoming().kind != 'call'
+              || (incoming().callKind in ['audio', 'video']
+                  && incoming().callOutcome in ['completed', 'missed', 'declined', 'failed']
+                  && incoming().callSeconds is int
+                  && incoming().callSeconds >= 0
+                  && incoming().callSeconds <= 86400))
+          && incoming().reactions.size() == 0;
+
+        // 送信済みメッセージの本文は書き換えられない。変えられるのは
+        // reactions だけで、しかも自分の1件だけ。
+        // 他人のリアクションを消したり、後から本文を差し替えたりはできない。
+        allow update: if memberOfParent()
+          && (
+            // リアクション: 自分の1件だけ
+            (incoming().diff(resource.data).affectedKeys().hasOnly(['reactions'])
+             && incoming().reactions.diff(resource.data.reactions)
+                  .affectedKeys().hasOnly([uid()]))
+            ||
+            // 送信取り消し: 送信者本人だけ。本文は消え、取り消した事実だけが残る。
+            // 本文を「書き換える」ことはできない——消すことしかできない。
+            //
+            // 写真も同じ扱いにする。取り消しでサムネイルが残ったら、
+            // 「取り消した」と表示しながら中身が見えていることになる。
+            (resource.data.senderId == uid()
+             && incoming().diff(resource.data).affectedKeys()
+                  .hasOnly(['retractedAt', 'text', 'stickerId', 'mediaThumb'])
+             && incoming().retractedAt is timestamp
+             && !('text' in incoming())
+             && !('stickerId' in incoming())
+             && !('mediaThumb' in incoming()))
+          );
+
+        allow delete: if memberOfParent() && resource.data.senderId == uid();
+      }
+
+      // 既読位置。自分の分だけ書ける。
+      // 他人の既読を書き換えられると「読んだことにされる」ため。
+      match /reads/{userId} {
+        function memberOfParent() {
+          return signedIn() && uid() in
+            get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.memberIds;
+        }
+        allow read: if memberOfParent();
+        allow write: if signedIn() && userId == uid() && memberOfParent();
+      }
+    }
+
+    // --------------------------------------------------------------- stickers
+    //
+    // スタンプの正本。メッセージは id しか運ばないので、受け取った側は
+    // ここから1度だけ取得して端末に持つ。→ docs/STICKER_ARCHITECTURE.md
+    //
+    // get は署名済みなら誰でも許す。id は推測できず、id を知っているという
+    // ことは、それが貼られた会話にいたということだからである。
+    // list は所有者本人のみ（クエリに ownerId == uid が必要になる）。
+    // 写真の本体。ID は内容の SHA-256 なので、受け取った側はハッシュを取り直せば
+    // 「頼んだものが返ってきたか」を自分で確かめられる。サーバーを信用する必要が無い。
+    //
+    // 読める条件は「ログインしていること」。弱い保護であることは承知の上で、
+    // ID を知らなければ辿り着けない。会話参加者に限る強化は
+    // docs/MEDIA_ARCHITECTURE.md §7 の段階1.5。
+    match /media/{mediaId} {
+      allow get: if signedIn();
+      // 一覧は許さない。許すと「他人が何を送ったか」を総なめにできる。
+      allow list: if false;
+
+      // **書き込みは閉じた。** ここは保管庫を XServer へ移す前の遺物で、アプリは
+      // `MediaRepository.fetchLegacy` から**読むだけ**（しかもハッシュを取り直して
+      // 照合する）。書く経路はもう無い。
+      //
+      // 一方で規則は「64文字の id なら誰でも 900KB 置ける」を許したままだった。
+      // 正規の利用者が1人もいない書き込み口は、置き場所を提供しているだけになる。
+      allow create, update, delete: if false;
+    }
+
+    match /stickers/{stickerId} {
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.ownerId == uid();
+
+      allow create: if signedIn()
+        && incoming().ownerId == uid()
+        && incoming().bytes is bytes
+        // StickerLimits.MAX_BYTES と同じ 200KB。Firestore の 1MB 制限にも収まる。
+        && incoming().bytes.size() <= 204800
+        && incoming().contentHash is string
+        && incoming().widthPx is int && incoming().widthPx <= 512
+        && incoming().heightPx is int && incoming().heightPx <= 512;
+
+      // 差し替え禁止。同じ id の中身が後から変わると、端末に持っている
+      // コピーとずれる。作り直すなら新しい id になる。
+      allow update: if false;
+
+      allow delete: if signedIn() && resource.data.ownerId == uid();
+    }
+
+    // --------------------------------------------------------------- feedback
+    //
+    // 本文が保存される唯一の場所であり、会話とは別系統。
+    // ユーザーが「開発者に届ける意図で」書いたものなので開発者が読む。
+    // 会話の本文とは性質が違う。混同しない。→ docs/ANALYTICS_SCHEMA.md §6
+    match /feedback/{feedbackId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && incoming().authorId == uid()
+        && incoming().title is string && incoming().title.size() <= 120
+        && incoming().body is string && incoming().body.size() <= 4000
+        // AnalyticsEnums.kt の FeedbackCategory.wireName と一致させること。
+        && incoming().category in ['bug', 'feature', 'ui', 'haptic', 'other'];
+
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.authorId == uid();
+
+      // 票は1人1件。件数は集計クエリで数えるので、
+      // 親ドキュメントに書き込み可能なカウンタを置かない。
+      // カウンタを置くと、それが誰でも書き換えられる穴になる。
+      match /votes/{userId} {
+        allow read: if signedIn();
+        allow create, delete: if signedIn() && userId == uid();
+        allow update: if false;
+      }
+    }
+  }
+}

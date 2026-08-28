@@ -4,11 +4,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Guards the wire format of the analytics schema.
+ * 計測スキーマの、線の上の形を守る。
  *
- * The "no message bodies" guarantee is structural — [AnalyticsValue] has no text case,
- * and [AnalyticsEnum] is sealed — so these tests check the things types cannot: naming
- * conventions and the bucketing that keeps long lengths from becoming fingerprints.
+ * 「本文を送らない」保証は構造で担保している（[AnalyticsValue] に文字の場合が無く、
+ * [AnalyticsEnum] は sealed）。なのでここで見るのは型では見られないもの、
+ * つまり命名の規約と、長さが指紋にならないようにする区分け。
  */
 class AnalyticsSchemaTest {
 
@@ -90,9 +90,9 @@ class AnalyticsSchemaTest {
     }
 
     /**
-     * The structural guarantee is that [AnalyticsValue] has no text case, so no id can be
-     * expressed at all. This checks the softer thing types cannot: that no parameter is
-     * even *named* like an identifier, which is how such a field would first appear.
+     * 構造上の保証は [AnalyticsValue] に文字の場合が無いことで、id はそもそも
+     * 書き表せない。ここで見るのは型では見られない、もっと緩いこと。識別子らしい
+     * *名前*の項目すら無いこと。そういう項目は、まずその形で現れる。
      */
     @Test
     fun `no event reports an identifier`() {
@@ -109,7 +109,7 @@ class AnalyticsSchemaTest {
 
     @Test
     fun `character counts above 500 are bucketed`() {
-        // Exact long lengths are a fingerprint; buckets are not.
+        // 長さを正確に出すと指紋になる。区分にすればならない。
         assertTrue(bucketCharacterCount(0) == 0)
         assertTrue(bucketCharacterCount(24) == 24)
         assertTrue(bucketCharacterCount(499) == 499)
