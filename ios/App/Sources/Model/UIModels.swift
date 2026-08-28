@@ -165,3 +165,21 @@ final class ConversationStore: ObservableObject {
         )
     }
 }
+
+#if DEBUG
+extension ConversationStore {
+    /// 撮影のときだけ、写真の本体を後から入れる。
+    ///
+    /// 見本データ自身には持たせない——**まだ届いていない状態も撮りたい**し、
+    /// 「本体が無くても形は分かる」という約束を試験で押さえているため。
+    func attachSampleMedia(_ image: UIImage) {
+        for (ci, conversation) in conversations.enumerated() {
+            for (mi, message) in conversation.messages.enumerated() {
+                if case .image = message.content {
+                    conversations[ci].messages[mi].media = .init(thumbnail: image)
+                }
+            }
+        }
+    }
+}
+#endif

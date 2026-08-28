@@ -31,24 +31,38 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if store.signedIn {
-                NavigationStack {
-                    ChatListScreen()
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                NavigationLink {
-                                    ProfileScreen()
-                                } label: {
-                                    Image(systemName: "person.crop.circle")
-                                }
-                            }
-                        }
-                }
+            #if DEBUG
+            // 撮影のための起動。引数が無ければ通常の入口に落ちる。
+            if let screen = ScreenshotHarness.requested {
+                ScreenshotStage(name: screen)
             } else {
-                SignInScreen()
+                normal
             }
+            #else
+            normal
+            #endif
         }
         .environment(\.rinowaColors, colors)
         .tint(colors.accent)
+    }
+
+    @ViewBuilder
+    private var normal: some View {
+        if store.signedIn {
+            NavigationStack {
+                ChatListScreen()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            NavigationLink {
+                                ProfileScreen()
+                            } label: {
+                                Image(systemName: "person.crop.circle")
+                            }
+                        }
+                    }
+            }
+        } else {
+            SignInScreen()
+        }
     }
 }

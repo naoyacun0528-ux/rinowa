@@ -102,12 +102,12 @@ jobs:
       - name: 組み立てる
         working-directory: ios/App
         run: |
-          xcodebuild build -project RinowaApp.xcodeproj -scheme RinowaApp -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+          xcodebuild build -project RinowaApp.xcodeproj -scheme RinowaApp -configuration Debug -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
 
       - name: 試す
         working-directory: ios/App
         run: |
-          xcodebuild test -project RinowaApp.xcodeproj -scheme RinowaApp -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+          xcodebuild test -project RinowaApp.xcodeproj -scheme RinowaApp -configuration Debug -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
 
       - name: 画面を撮る
         # **ビルドが通っただけでは、中身が動いているかは分からない。**
@@ -118,13 +118,30 @@ jobs:
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
-          APP=$(find build/Build/Products -name "RinowaApp.app" | head -1)
+          APP=build/Build/Products/Debug-iphonesimulator/RinowaApp.app
+          if [ ! -d "$APP" ]; then echo "Debug の生成物が無い"; find build/Build/Products -name "*.app"; exit 1; fi
           echo "見つけたアプリ: $APP"
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" blog.nextlab.echo
-          sleep 8
+
+          # 時計と電池を固定する。**撮った日が分かる情報を写り込ませない**のと、
+          # 差分を見るときに上端だけ毎回変わるのを止めるため。
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiBars 3 --dataNetwork wifi --operatorName ""
+
           mkdir -p screenshots
-          xcrun simctl io "$UDID" screenshot screenshots/smoke.png
+          for SCREEN in list chat photo call-active call-ringing call-ended safety profile privacy backup signin; do
+            xcrun simctl terminate "$UDID" blog.nextlab.echo 2>/dev/null || true
+            xcrun simctl launch "$UDID" blog.nextlab.echo --rinowa-screen "$SCREEN"
+            # 起動して落ち着くまで待つ。アニメーションの途中で撮ると毎回違う絵になる。
+            sleep 4
+            xcrun simctl io "$UDID" screenshot "screenshots/$SCREEN.png"
+            echo "撮った: $SCREEN"
+          done
+          xcrun simctl terminate "$UDID" blog.nextlab.echo 2>/dev/null || true
+
+          # 撮り漏らしはここで落とす。**後から artifact を開いて気づくのでは遅い。**
+          COUNT=$(ls screenshots/*.png | wc -l | tr -d ' ')
+          echo "撮れた枚数: $COUNT"
+          if [ "$COUNT" -lt 11 ]; then echo "撮れていない画面がある"; exit 1; fi
           ls -la screenshots
 
       - name: 画面を持ち帰る
