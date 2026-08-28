@@ -49,7 +49,7 @@ struct ChatMessage: Identifiable, Equatable {
             mediaKey: nil, originalId: nil, originalKey: nil,
             originalBytes: nil, originalMime: nil))).value
         case .video: return MessagePreview.text(for: .video(.init(
-            mediaId: "", durationMs: 0, width: 0, height: 0,
+            mediaId: "", width: 0, height: 0, durationMs: 0, byteCount: 0,
             sealedBytes: 0, thumbnail: Data(), mediaKey: nil))).value
         case .call(let video, _, _):
             return video ? "ビデオ通話" : "音声通話"

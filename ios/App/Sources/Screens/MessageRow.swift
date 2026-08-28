@@ -58,13 +58,16 @@ struct MessageRow: View {
             haptics.fire(.threshold)
             showReactions = true
         }
-        .popover(isPresented: $showReactions) {
+        .sheet(isPresented: $showReactions) {
+            // iOS 16.0 で動く形。popover の小型表示は 16.4 からなので使わない。
+            // **使える機能のために切り捨てる端末を増やさない。**
             ReactionPicker { index in
                 haptics.fire(.reaction)
                 onReact(index)
                 showReactions = false
             }
-            .presentationCompactAdaptation(.popover)
+            .padding(.vertical, RinowaDimens.gapLarge)
+            .presentationDetents([.height(120)])
         }
     }
 
