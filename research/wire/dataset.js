@@ -36,7 +36,7 @@ function makeUid(rnd) {
   return out;
 }
 
-const NAMES = ['なおや', 'みゆき', 'そうた', 'ひなた', 'お母さん', 'お父さん', 'Naoya', 'ゆき'];
+const NAMES = ['みなと', 'みゆき', 'そうた', 'ひなた', 'お母さん', 'お父さん', 'Kaito', 'ゆき'];
 const STICKER_IDS = [
   'echo.core.smile', 'echo.core.cry', 'echo.core.thumbsup', 'echo.core.heart',
   'echo.core.sleep', 'echo.core.ok', 'echo.core.sorry', 'echo.core.thanks',

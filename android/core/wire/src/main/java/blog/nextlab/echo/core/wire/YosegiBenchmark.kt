@@ -97,7 +97,7 @@ object YosegiBenchmark {
                 status = WireStatus.entries[next(WireStatus.entries.size)],
                 text = if (sticker) null else SAMPLE_TEXT[next(SAMPLE_TEXT.size)],
                 stickerId = if (sticker) context.stickerCatalogue[next(3)] else null,
-                replyTo = if (next(100) < 11) WireReply(id(20), "なおや", "引用の一部") else null,
+                replyTo = if (next(100) < 11) WireReply(id(20), "みなと", "引用の一部") else null,
                 reactions = if (next(100) < 15) mapOf(members[next(members.size)] to next(6)) else emptyMap(),
             )
         }
@@ -115,7 +115,7 @@ object YosegiBenchmark {
         // いま Rinowa が送っているもの。この端末の上で比較に意味を持たせるため。
         val jsonEquivalent = messages.joinToString("") { m ->
             """{"id":"${m.id}","conversationId":"${context.conversationId}","senderId":"${m.senderId}",""" +
-                """"senderName":"なおや","timestampMs":${m.timestampMs},"status":"${m.status}",""" +
+                """"senderName":"みなと","timestampMs":${m.timestampMs},"status":"${m.status}",""" +
                 (m.text?.let { """"text":"$it"""" } ?: """"stickerId":"${m.stickerId}"""") + "},"
         }.toByteArray(Charsets.UTF_8).size
 

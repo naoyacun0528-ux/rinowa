@@ -29,7 +29,7 @@ class YosegiCompatibilityTest {
         timestampMs = 1_755_302_400_000L,
         status = WireStatus.Delivered,
         text = "今日の夕飯なににする",
-        replyTo = WireReply("Zz9YyXxWwVvUuTtSsRrQ", "なおや", "なんでもいいよ"),
+        replyTo = WireReply("Zz9YyXxWwVvUuTtSsRrQ", "みなと", "なんでもいいよ"),
         reactions = mapOf(context.memberIds[0] to 3),
     )
 

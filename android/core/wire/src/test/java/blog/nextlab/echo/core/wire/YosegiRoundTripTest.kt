@@ -63,7 +63,7 @@ class YosegiRoundTripTest {
                     timestampMs = 1_755_302_400_000L,
                     status = WireStatus.Read,
                     text = "了解です🙏",
-                    replyTo = WireReply(id(3), "なおや", "明日の予定どうする"),
+                    replyTo = WireReply(id(3), "みなと", "明日の予定どうする"),
                     senderName = "みゆき",
                     reactions = mapOf(context.memberIds[0] to 4, context.memberIds[2] to 0),
                 ),

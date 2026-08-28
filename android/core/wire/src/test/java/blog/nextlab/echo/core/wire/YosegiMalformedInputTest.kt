@@ -40,7 +40,7 @@ class YosegiMalformedInputTest {
                 senderId = context.memberIds[i % 2],
                 timestampMs = 1_755_302_400_000L + i * 60_000L,
                 text = "メッセージ $i",
-                replyTo = if (i % 3 == 0) WireReply("Zz9YyXxWwVvUuTtSsRrQ", "なおや", "引用") else null,
+                replyTo = if (i % 3 == 0) WireReply("Zz9YyXxWwVvUuTtSsRrQ", "みなと", "引用") else null,
                 reactions = if (i % 4 == 0) mapOf(context.memberIds[0] to 2) else emptyMap(),
             )
         },
