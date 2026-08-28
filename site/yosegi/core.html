@@ -188,6 +188,11 @@
   @media (max-width:620px){
     .rigs.n8,.rigs.n4{grid-template-columns:repeat(2,1fr)}
     .rigs.n3,.rigs.n2{grid-template-columns:1fr}
+    .rigs.n3 .rig{
+      flex-direction:row;align-items:center;justify-content:space-between;
+      padding:17px 20px;gap:16px;
+    }
+    .rigs.n3 .rig .spd{font-size:27px}
   }
   .rig .who{font-family:var(--disp);font-size:13.5px;font-weight:700;color:var(--white);line-height:1.6}
   .rig .spd{
@@ -283,15 +288,18 @@
     <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">圧縮せずに</p>
     <span class="figwrap rev bare h" style="--i:1;opacity:0">
       <i class="glow h" style="opacity:0;transform:translate(-50%,-50%) scale(.6)"></i>
-      <span class="figure h" data-count="78" style="opacity:0;transform:translateY(46px) scale(.88);filter:blur(20px)">78<span class="u">%</span></span>
+      <span class="figure h" data-count="60" style="opacity:0;transform:translateY(46px) scale(.88);filter:blur(20px)">60<span class="u">%</span></span>
     </span>
     <h2 class="jp rev bare h" style="--i:2;opacity:0">
       <span class="ln"><span class="li h" style="--i:4;transform:translateY(118%)"><span class="u">データ削減、</span><span class="u">成功。</span></span></span>
     </h2>
     <p class="say jp rev h" style="--i:6;opacity:0;transform:translateY(30px)">
+      <span class="u">比べた相手は、</span><span class="u">世界中のアプリが使う</span><span class="u">MessagePack。</span>
       <span class="u">圧縮アルゴリズムは<b>一切かけていません</b>。</span>
       <span class="u">それでもメッセージは、</span><span class="u">送られる前から小さい。</span>
-      <span class="u">Rinowa に完全最適化された</span><span class="u">Yosegi v1 だから、</span><span class="u">できることです。</span>
+    </p>
+    <p class="fine jp rev h" style="--i:8;opacity:0;transform:translateY(30px)">
+      <span class="u">※ 1,874通で実測。</span><span class="u">両方とも圧縮なし。</span>
     </p>
   </div>
 </section>
@@ -341,21 +349,52 @@
     <div class="rigs n4 rev bare h" style="--i:9;opacity:0">
       <div class="rig h" style="--i:0;opacity:0;transform:translateY(34px) scale(.94)">
         <span class="who">デスクトップ</span>
-        <span class="cut" data-count="78">78<span class="un">%</span></span>
+        <span class="cut" data-count="60">60<span class="un">%</span></span>
       </div>
       <div class="rig h" style="--i:1;opacity:0;transform:translateY(34px) scale(.94)">
         <span class="who">Pixel 10</span>
-        <span class="cut" data-count="78">78<span class="un">%</span></span>
+        <span class="cut" data-count="60">60<span class="un">%</span></span>
       </div>
       <div class="rig h" style="--i:2;opacity:0;transform:translateY(34px) scale(.94)">
         <span class="who">arrows We2</span>
-        <span class="cut" data-count="78">78<span class="un">%</span></span>
+        <span class="cut" data-count="60">60<span class="un">%</span></span>
       </div>
       <div class="rig h" style="--i:3;opacity:0;transform:translateY(34px) scale(.94)">
         <span class="who">Galaxy A23 5G</span>
-        <span class="cut" data-count="78">78<span class="un">%</span></span>
+        <span class="cut" data-count="60">60<span class="un">%</span></span>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="stage">
+  <div class="inner">
+    <p class="eyebrow jp rev h" style="--i:0;opacity:0;transform:translateY(30px)">いちばん厳しい比較</p>
+    <h2 class="jp rev bare h" style="--i:1;opacity:0">
+      <span class="ln"><span class="li h" style="--i:3;transform:translateY(118%)"><span class="u">名前を捨てても、</span></span></span>
+      <span class="ln"><span class="li h" style="--i:5;transform:translateY(118%)"><span class="u">まだ届かない。</span></span></span>
+    </h2>
+    <p class="say jp rev h" style="--i:7;opacity:0;transform:translateY(30px)">
+      <span class="u">名前を全部捨てた、</span><span class="u">素朴なバイナリ。</span>
+      <span class="u">そこからさらに <b>41%</b> 小さい。</span>
+    </p>
+    <div class="rigs n3 rev bare h" style="--i:9;opacity:0">
+      <div class="rig h" style="--i:0;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">JSON</span>
+        <span class="spd" data-count="267">267<span class="un">B</span></span>
+      </div>
+      <div class="rig h" style="--i:1;opacity:0;transform:translateY(34px) scale(.94)">
+        <span class="who">素朴なバイナリ</span>
+        <span class="spd" data-count="159">159<span class="un">B</span></span>
+      </div>
+      <div class="rig h" style="--i:2;opacity:0;transform:translateY(34px) scale(.94);background:linear-gradient(180deg,rgba(143,182,230,.10),#07080C)">
+        <span class="who">YOSEGI V1</span>
+        <span class="spd" data-count="93">93<span class="un">B</span></span>
+      </div>
+    </div>
+    <p class="fine jp rev h" style="--i:11;opacity:0;transform:translateY(30px)">
+      <span class="u">※ 1通あたりの平均。</span><span class="u">すべて圧縮なし。</span>
+    </p>
   </div>
 </section>
 
@@ -404,7 +443,7 @@
 <section class="stage">
   <div class="inner">
     <p class="sign jp rev bare h" style="--i:0;opacity:0">
-      <span class="ln"><span class="li h" style="--i:0;transform:translateY(118%)"><span class="u">圧縮せずに 78%。</span></span></span>
+      <span class="ln"><span class="li h" style="--i:0;transform:translateY(118%)"><span class="u">圧縮せずに 60%。</span></span></span>
       <span class="ln"><span class="li h" style="--i:2;transform:translateY(118%)"><span class="u">まばたきの17万分の1。</span></span></span>
       <span class="ln"><span class="li n h" style="--i:4;transform:translateY(118%)"><span class="u">それが、Yosegi v1。</span></span></span>
     </p>

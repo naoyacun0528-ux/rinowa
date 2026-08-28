@@ -11,8 +11,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const core = fs.readFileSync(path.join(HERE, "core.html"), "utf8");
 
 const URL = "https://echo.nextlab.blog/yosegi/";
-const IMG = "og-5.jpg";   // **差し替えたら名前も変える。** 同じ名前だと古い写しが出続ける
-const DESC = "圧縮せずに78%のデータ削減。まばたきの17万分の1で終わる、Rinowa専用アルゴリズム。";
+const IMG = "og-6.jpg";   // **差し替えたら名前も変える。** 同じ名前だと古い写しが出続ける
+const DESC = "圧縮せずに60%のデータ削減。まばたきの17万分の1で終わる、Rinowa専用アルゴリズム。";
 const ALT = "Yosegi v1 — Rinowa のためだけに、ゼロから設計された。";
 
 const page = `<!doctype html>

@@ -12,7 +12,7 @@ Rinowa（アプリ）のワイヤ形式である **Yosegi v1** を紹介する1�
 | `core.html` | **本体。** CSS・本文・スクリプトが全部ここに入っている |
 | `build.mjs` | `core.html` を包んで `index.html` を作る。head と OGP の指定はここ |
 | `og.html` | OGP画像を焼く。ブラウザで開いて「保存」 |
-| `og-5.jpg` | 焼いたもの（1200×630、約 50KB） |
+| `og-6.jpg` | 焼いたもの（1200×630、約 50KB） |
 | `serve.mjs` | 手元で見るための小さなサーバー |
 | `htaccess` | 配備先では `.htaccess` として置く。キャッシュの指示だけ |
 | `moved.html` | 旧アドレス `/rinowa/` に置いてある転送ページ |
@@ -26,10 +26,10 @@ node serve.mjs      # http://localhost:4319 で見る
 
 ## 配る
 
-`index.html` と `og-5.jpg` と `htaccess`（`.htaccess` として）を
+`index.html` と `og-6.jpg` と `htaccess`（`.htaccess` として）を
 `echo.nextlab.blog/yosegi/` に置くだけ。
 
-**画像を差し替えたら名前も変えること。** `og-5.jpg` → `og-5.jpg`。
+**画像を差し替えたら名前も変えること。** `og-6.jpg` → `og-7.jpg`。
 同じ名前のままだと、一度読んだ端末も LINE も古いほうを出し続ける。
 `build.mjs` の中の名前も合わせて変える。
 
