@@ -59,8 +59,10 @@ targets:
     sources:
       - path: Tests
     dependencies:
+      # **アプリだけに繋ぐ。** ここに package を書き足すと、Xcode がパッケージを
+      # もう一度組もうとして、その依存（swift-crypto）が間に合わずリンクが落ちる。
+      # RinowaCore はアプリが既に繋いでいるので、import はそのまま通る。
       - target: RinowaApp
-      - package: RinowaCore
     settings:
       base:
         CODE_SIGNING_ALLOWED: "NO"
