@@ -44,7 +44,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 環境を記録する
-        # 「どの Xcode で通ったか」が残っていないと、あとで再現できない。
         run: |
           xcodebuild -version
           swift --version
@@ -64,21 +63,15 @@ jobs:
         run: |
           set -e
           xcrun simctl list devices available
-          UDID=$(xcrun simctl list devices available --json \
-            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];\
-print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
-          NAME=$(xcrun simctl list devices available | grep "$UDID" | sed 's/ (.*//;s/^ *//')
-          echo "選んだ: $NAME ($UDID)"
+          UDID=$(xcrun simctl list devices available | grep -i iphone | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}' | head -1)
+          if [ -z "$UDID" ]; then echo "使える iPhone が無い"; exit 1; fi
+          echo "選んだ: $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: iOS の上で試す
         working-directory: ios/RinowaCore
         run: |
-          xcodebuild test \
-            -scheme RinowaCore \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath .build-ios \
-            CODE_SIGNING_ALLOWED=NO
+          xcodebuild test -scheme RinowaCore -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath .build-ios CODE_SIGNING_ALLOWED=NO
 
   app:
     name: アプリ
@@ -101,30 +94,20 @@ print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
         id: sim
         run: |
           set -e
-          UDID=$(xcrun simctl list devices available --json \
-            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];\
-print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
+          UDID=$(xcrun simctl list devices available | grep -i iphone | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}' | head -1)
+          if [ -z "$UDID" ]; then echo "使える iPhone が無い"; exit 1; fi
+          echo "選んだ: $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: 組み立てる
         working-directory: ios/App
         run: |
-          xcodebuild build \
-            -project RinowaApp.xcodeproj \
-            -scheme RinowaApp \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO
+          xcodebuild build -project RinowaApp.xcodeproj -scheme RinowaApp -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
 
       - name: 試す
         working-directory: ios/App
         run: |
-          xcodebuild test \
-            -project RinowaApp.xcodeproj \
-            -scheme RinowaApp \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO
+          xcodebuild test -project RinowaApp.xcodeproj -scheme RinowaApp -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
 
       - name: 画面を撮る
         # **ビルドが通っただけでは、中身が動いているかは分からない。**
@@ -135,7 +118,7 @@ print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
-          APP=$(find build/Build/Products -name "RinowaApp.app" -maxdepth 3 | head -1)
+          APP=$(find build/Build/Products -name "RinowaApp.app" | head -1)
           echo "見つけたアプリ: $APP"
           xcrun simctl install "$UDID" "$APP"
           xcrun simctl launch "$UDID" blog.nextlab.echo
@@ -151,12 +134,3 @@ print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
           name: screenshots
           path: ios/App/screenshots/
           if-no-files-found: warn
-
-      - name: 落ちたときのログを持ち帰る
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs
-          path: |
-            ios/App/build/Logs/
-          if-no-files-found: ignore
