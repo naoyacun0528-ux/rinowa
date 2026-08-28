@@ -40,11 +40,55 @@ jobs:
           # 同じ依存を毎回取りに行かない。main の分だけ書き込む。
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
+      - name: Firebase の設定に、CI 用の偽物を置く
+        # **本物は置かない。** リポジトリは公開してあるし、置く理由も無い。
+        #
+        # ただし何も置かないとビルドが通らない。Google Services プラグインが
+        # google-services.json から R.string.default_web_client_id を作っていて、
+        # auth/GoogleCredentialClient.kt がそれを参照しているため。
+        # 「設定が無ければプラグインを飛ばす」だけでは、参照側が残る。
+        #
+        # ここで作るのは形だけ揃えた偽物で、この APK は Firebase に繋がらない。
+        # 確かめたいのは**コードが組み上がること**であって、通信ではない。
+        run: |
+          cat > android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "rinowa-ci-placeholder",
+              "storage_bucket": "rinowa-ci-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                  "android_client_info": { "package_name": "blog.nextlab.echo" }
+                },
+                "oauth_client": [
+                  { "client_id": "000000000000-ci.apps.googleusercontent.com", "client_type": 3 }
+                ],
+                "api_key": [ { "current_key": "NOT_A_REAL_KEY_0000000000000000000000" } ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              },
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:1111111111111111111111",
+                  "android_client_info": { "package_name": "blog.nextlab.echo.debug" }
+                },
+                "oauth_client": [
+                  { "client_id": "000000000000-ci.apps.googleusercontent.com", "client_type": 3 }
+                ],
+                "api_key": [ { "current_key": "NOT_A_REAL_KEY_0000000000000000000000" } ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+          echo "偽物を置いた（Firebase には繋がらない）"
+
       - name: 組み立てる
         working-directory: android
-        # google-services.json はここに無い。app/build.gradle.kts は
-        # 見つからなければ Google Services プラグインを飛ばすので、
-        # 秘密を CI に置かずにビルドだけ確かめられる。
         run: ./gradlew :app:assembleDebug --console=plain --stacktrace
 
       - name: 試す
