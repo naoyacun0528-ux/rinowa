@@ -1,0 +1,162 @@
+# iOS を Mac 無しで作るための足場。
+#
+# 開発は Windows。**確かめるのはここ。** macOS ランナーは公開リポジトリなら無料で、
+# Xcode が最初から入っている。
+#
+# 段を3つに分けてあるのは、**落ちたとき、どこで落ちたかがすぐ分かるように**。
+# 1つの大きなジョブだと「iOS のビルドが落ちた」としか分からない。
+#
+#   1. core-macos   Windows で書いたコードが、そもそも macOS で動くか
+#   2. core-ios     それが iOS SDK の上でも動くか
+#   3. app          アプリとして組み上がるか（画面つき）
+#
+# 1 が落ちたら移植の問題。2 なら iOS 固有。3 なら画面。
+#
+# **機種名を決め打ちにしない。** Xcode の版が上がると使える機種の名前が変わり、
+# ある日いきなり落ちる。毎回その場で一覧から選ぶ。
+
+name: iOS
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - "research/vectors/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - "research/vectors/**"
+  workflow_dispatch:
+
+concurrency:
+  # 同じブランチに続けて push したら古いほうは止める。
+  # macOS の同時実行は5本までなので、詰まらせない。
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  core-macos:
+    name: RinowaCore（macOS）
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 環境を記録する
+        # 「どの Xcode で通ったか」が残っていないと、あとで再現できない。
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: 組み立てて試す
+        working-directory: ios/RinowaCore
+        run: swift test --parallel
+
+  core-ios:
+    name: RinowaCore（iOS Simulator）
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 使える iPhone を1台選ぶ
+        id: sim
+        run: |
+          set -e
+          xcrun simctl list devices available
+          UDID=$(xcrun simctl list devices available --json \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];\
+print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
+          NAME=$(xcrun simctl list devices available | grep "$UDID" | sed 's/ (.*//;s/^ *//')
+          echo "選んだ: $NAME ($UDID)"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: iOS の上で試す
+        working-directory: ios/RinowaCore
+        run: |
+          xcodebuild test \
+            -scheme RinowaCore \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath .build-ios \
+            CODE_SIGNING_ALLOWED=NO
+
+  app:
+    name: アプリ
+    runs-on: macos-15
+    needs: core-ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: xcodegen を入れる
+        # .xcodeproj は git に入れない。設計図（project.yml）から毎回起こす。
+        run: brew install xcodegen
+
+      - name: プロジェクトを起こす
+        working-directory: ios/App
+        run: |
+          xcodegen generate
+          ls -la
+
+      - name: 使える iPhone を1台選ぶ
+        id: sim
+        run: |
+          set -e
+          UDID=$(xcrun simctl list devices available --json \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];\
+print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: 組み立てる
+        working-directory: ios/App
+        run: |
+          xcodebuild build \
+            -project RinowaApp.xcodeproj \
+            -scheme RinowaApp \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: 試す
+        working-directory: ios/App
+        run: |
+          xcodebuild test \
+            -project RinowaApp.xcodeproj \
+            -scheme RinowaApp \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: 画面を撮る
+        # **ビルドが通っただけでは、中身が動いているかは分からない。**
+        # Windows からは画面が見えないので、ここが唯一の目になる。
+        working-directory: ios/App
+        run: |
+          set -e
+          UDID="${{ steps.sim.outputs.udid }}"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find build/Build/Products -name "RinowaApp.app" -maxdepth 3 | head -1)
+          echo "見つけたアプリ: $APP"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" blog.nextlab.echo
+          sleep 8
+          mkdir -p screenshots
+          xcrun simctl io "$UDID" screenshot screenshots/smoke.png
+          ls -la screenshots
+
+      - name: 画面を持ち帰る
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ios/App/screenshots/
+          if-no-files-found: warn
+
+      - name: 落ちたときのログを持ち帰る
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: |
+            ios/App/build/Logs/
+          if-no-files-found: ignore

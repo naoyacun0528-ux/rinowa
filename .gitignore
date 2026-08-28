@@ -70,3 +70,13 @@ research/line-reviews/
 # 手元に配るためにまとめたもの。中身は上のものの複製。
 outputs/*-internal/
 outputs/*-internal.zip
+
+# ---------------------------------------------------------------- Xcode
+# .xcodeproj は ios/App/project.yml から xcodegen が起こす。
+# 生成物を git に入れると、設計図と食い違ったまま気づけない。
+ios/App/*.xcodeproj
+ios/App/build/
+ios/App/screenshots/
+ios/**/.build/
+ios/**/.build-ios/
+*.xcuserdatad

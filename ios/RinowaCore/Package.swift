@@ -14,6 +14,9 @@ import PackageDescription
 /// 検証もできない部分だから。
 let package = Package(
     name: "RinowaCore",
+    // Apple のプラットフォームでの下限。Windows と Linux はこの行を見ないので、
+    // 足しても手元のビルドは変わらない。
+    platforms: [.iOS(.v16), .macOS(.v13)],
     products: [
         .library(name: "RinowaCore", targets: ["RinowaCore"])
     ],

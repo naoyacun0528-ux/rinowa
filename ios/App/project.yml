@@ -1,0 +1,78 @@
+# Xcode プロジェクトの設計図。
+#
+# `.xcodeproj` を直接書かない理由: あれは中身が巨大な plist で、UUID を手で振る形式。
+# 人が書くものではないし、差分も読めない。**この YAML から xcodegen が起こす。**
+#
+#   xcodegen generate --spec ios/App/project.yml
+#
+# 生成物（RinowaApp.xcodeproj）は git に入れない。設計図がこれ1つなら、
+# 「プロジェクト設定がいつの間にか変わっていた」が起こらない。
+
+name: RinowaApp
+
+options:
+  bundleIdPrefix: blog.nextlab
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  # 生成物は毎回作り直す前提。手で開いて変えたものは次の生成で消える。
+  generateEmptyDirectories: false
+
+packages:
+  RinowaCore:
+    # 画面を持たない部分。Windows でも書けてテストも通る側で、
+    # ここに入っているものは Mac が無くても直せる。
+    path: ../RinowaCore
+
+targets:
+  RinowaApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: RinowaCore
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Rinowa
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # 暗い一色に決め打ち。Android 側と揃える。
+        UIUserInterfaceStyle: Dark
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: blog.nextlab.echo
+        # 署名は CI では要らない。Simulator 向けは署名なしで通る。
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGN_IDENTITY: ""
+        SWIFT_VERSION: "5.9"
+        # 警告を残さない。Android 側と同じ規律。
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: "NO"
+
+  RinowaAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: RinowaApp
+      - package: RinowaCore
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: "NO"
+
+schemes:
+  RinowaApp:
+    build:
+      targets:
+        RinowaApp: all
+        RinowaAppTests: [test]
+    test:
+      targets:
+        - RinowaAppTests
+    run:
+      config: Debug
