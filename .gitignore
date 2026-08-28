@@ -80,3 +80,4 @@ ios/App/screenshots/
 ios/**/.build/
 ios/**/.build-ios/
 *.xcuserdatad
+outputs/**/*.png
