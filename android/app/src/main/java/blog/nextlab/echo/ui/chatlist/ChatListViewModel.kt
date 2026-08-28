@@ -7,12 +7,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import blog.nextlab.echo.data.RinowaServices
 import blog.nextlab.echo.data.UserRepository
-import blog.nextlab.echo.model.Conversation
+import blog.nextlab.echo.core.model.Conversation
 import blog.nextlab.echo.data.MessageRepository
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
-import blog.nextlab.echo.model.UserProfile
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
+import blog.nextlab.echo.core.model.UserProfile
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

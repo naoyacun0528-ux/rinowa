@@ -1,10 +1,10 @@
 package blog.nextlab.echo.data
 
-import blog.nextlab.echo.model.CallOutcome
-import blog.nextlab.echo.model.MediaId
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.StickerId
+import blog.nextlab.echo.core.model.CallOutcome
+import blog.nextlab.echo.core.model.MediaId
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.StickerId
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import org.json.JSONException

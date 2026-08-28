@@ -11,7 +11,7 @@ import blog.nextlab.echo.core.analytics.FeedbackCategory
 import blog.nextlab.echo.core.analytics.VoteDirection
 import blog.nextlab.echo.data.RinowaServices
 import blog.nextlab.echo.data.FeedbackItem
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import kotlinx.coroutines.launch
 
 /**

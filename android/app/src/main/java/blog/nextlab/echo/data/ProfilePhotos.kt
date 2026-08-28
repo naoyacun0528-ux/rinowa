@@ -10,8 +10,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.exifinterface.media.ExifInterface
-import blog.nextlab.echo.model.ContentHash
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ContentHash
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore

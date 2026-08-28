@@ -1,10 +1,10 @@
 package blog.nextlab.echo.data
 
-import blog.nextlab.echo.model.ContentHash
-import blog.nextlab.echo.model.StickerFormat
-import blog.nextlab.echo.model.StickerId
-import blog.nextlab.echo.model.StickerLimits
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ContentHash
+import blog.nextlab.echo.core.model.StickerFormat
+import blog.nextlab.echo.core.model.StickerId
+import blog.nextlab.echo.core.model.StickerLimits
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore

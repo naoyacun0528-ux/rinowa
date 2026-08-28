@@ -23,8 +23,8 @@ import blog.nextlab.echo.direct.DiscoveredPeer
 import blog.nextlab.echo.direct.LanDirectTransport
 import blog.nextlab.echo.direct.NearbyDirectTransport
 import blog.nextlab.echo.direct.PeerLink
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 import com.google.android.gms.nearby.connection.BandwidthInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

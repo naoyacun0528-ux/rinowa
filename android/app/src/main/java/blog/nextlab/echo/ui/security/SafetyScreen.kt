@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.crypto.CryptoEngine
 import blog.nextlab.echo.crypto.DeviceFingerprint
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.ui.common.ScreenHeader
 import blog.nextlab.echo.ui.common.formatDaySeparator
 

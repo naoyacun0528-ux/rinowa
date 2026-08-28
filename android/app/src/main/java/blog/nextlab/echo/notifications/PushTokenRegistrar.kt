@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Build
 import blog.nextlab.echo.data.RinowaDb
 import blog.nextlab.echo.data.renamedPreferences
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions

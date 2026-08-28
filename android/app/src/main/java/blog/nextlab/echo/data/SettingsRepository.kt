@@ -3,7 +3,7 @@ package blog.nextlab.echo.data
 import android.content.Context
 import blog.nextlab.echo.core.haptics.HapticIntensity
 import blog.nextlab.echo.core.haptics.HapticPreferences
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions

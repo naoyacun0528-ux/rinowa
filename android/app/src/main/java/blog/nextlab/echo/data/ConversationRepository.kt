@@ -1,10 +1,10 @@
 package blog.nextlab.echo.data
 
-import blog.nextlab.echo.model.Conversation
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.UserId
-import blog.nextlab.echo.model.UserProfile
+import blog.nextlab.echo.core.model.Conversation
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.UserId
+import blog.nextlab.echo.core.model.UserProfile
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue

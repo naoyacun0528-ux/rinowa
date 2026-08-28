@@ -2,7 +2,7 @@ package blog.nextlab.echo.backup
 
 import blog.nextlab.echo.data.ConversationRepository
 import blog.nextlab.echo.data.MessageRepository
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 

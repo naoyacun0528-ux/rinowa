@@ -5,15 +5,15 @@ import blog.nextlab.echo.core.wire.YosegiContext
 import blog.nextlab.echo.core.wire.WireMessage
 import blog.nextlab.echo.core.wire.WireReply
 import blog.nextlab.echo.core.wire.WireStatus
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.Message
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageId
-import blog.nextlab.echo.model.MessageStatus
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.Reaction
-import blog.nextlab.echo.model.ReplyPreview
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.Message
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageId
+import blog.nextlab.echo.core.model.MessageStatus
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.Reaction
+import blog.nextlab.echo.core.model.ReplyPreview
+import blog.nextlab.echo.core.model.UserId
 import kotlinx.collections.immutable.toImmutableList
 import java.util.zip.Deflater
 import java.util.zip.Inflater
@@ -158,7 +158,7 @@ object MessageWire {
     fun fromWire(wire: WireMessage, me: UserId, displayName: (UserId) -> String): Message {
         val content = when {
             wire.retracted -> MessageContent.Retracted
-            wire.stickerId != null -> MessageContent.Sticker(blog.nextlab.echo.model.StickerId(wire.stickerId!!))
+            wire.stickerId != null -> MessageContent.Sticker(blog.nextlab.echo.core.model.StickerId(wire.stickerId!!))
             else -> MessageContent.Text(MessageText(wire.text.orEmpty()))
         }
         val sender = UserId(wire.senderId)

@@ -46,8 +46,8 @@ import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.glassFace
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.ui.auth.RinowaField
 import blog.nextlab.echo.ui.auth.NoticeBanner
 import blog.nextlab.echo.ui.auth.PrimaryButton

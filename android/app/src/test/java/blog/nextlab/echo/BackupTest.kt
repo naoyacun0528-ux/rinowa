@@ -2,12 +2,12 @@ package blog.nextlab.echo
 
 import blog.nextlab.echo.backup.BackupArchive
 import blog.nextlab.echo.backup.BackupCipher
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.MediaId
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageId
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MediaId
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageId
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.UserId
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals

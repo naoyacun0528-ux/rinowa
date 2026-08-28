@@ -6,7 +6,7 @@ import blog.nextlab.echo.backup.BackupRepository
 import blog.nextlab.echo.calls.CallSignaling
 import blog.nextlab.echo.crypto.CryptoTransport
 import blog.nextlab.echo.media.MediaStoreClient
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.notifications.PushSender
 import blog.nextlab.echo.notifications.PushTokenRegistrar
 

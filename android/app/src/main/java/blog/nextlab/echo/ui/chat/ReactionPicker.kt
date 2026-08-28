@@ -28,13 +28,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import blog.nextlab.echo.model.MessageId
+import blog.nextlab.echo.core.model.MessageId
 import blog.nextlab.echo.core.designsystem.BackdropState
 import blog.nextlab.echo.core.designsystem.RinowaMotion
 import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.FrostedBar
 import blog.nextlab.echo.core.designsystem.preferHighFrameRate
-import blog.nextlab.echo.model.ReactionPalette
+import blog.nextlab.echo.core.model.ReactionPalette
 import kotlin.math.roundToInt
 
 /**

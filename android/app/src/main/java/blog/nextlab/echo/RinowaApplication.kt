@@ -32,8 +32,8 @@ import blog.nextlab.echo.data.SettingsRepository
 import blog.nextlab.echo.data.StickerRepository
 import blog.nextlab.echo.data.UserRepository
 import blog.nextlab.echo.media.MediaStoreClient
-import blog.nextlab.echo.model.ReactionPalette
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ReactionPalette
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.notifications.PushSender
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth

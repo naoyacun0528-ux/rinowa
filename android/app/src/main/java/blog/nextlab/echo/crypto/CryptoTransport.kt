@@ -1,6 +1,6 @@
 package blog.nextlab.echo.crypto
 
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await

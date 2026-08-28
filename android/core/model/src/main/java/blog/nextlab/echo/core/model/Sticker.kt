@@ -1,4 +1,4 @@
-﻿package blog.nextlab.echo.model
+﻿package blog.nextlab.echo.core.model
 
 import androidx.compose.runtime.Immutable
 import java.security.MessageDigest

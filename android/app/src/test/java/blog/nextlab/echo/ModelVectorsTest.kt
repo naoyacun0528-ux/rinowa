@@ -1,14 +1,14 @@
 package blog.nextlab.echo
 
-import blog.nextlab.echo.model.BuiltInStickers
-import blog.nextlab.echo.model.CallOutcome
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageStatus
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.ReactionPalette
-import blog.nextlab.echo.model.StickerId
-import blog.nextlab.echo.model.StickerLimits
-import blog.nextlab.echo.model.previewText
+import blog.nextlab.echo.core.model.BuiltInStickers
+import blog.nextlab.echo.core.model.CallOutcome
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageStatus
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.ReactionPalette
+import blog.nextlab.echo.core.model.StickerId
+import blog.nextlab.echo.core.model.StickerLimits
+import blog.nextlab.echo.core.model.previewText
 import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals

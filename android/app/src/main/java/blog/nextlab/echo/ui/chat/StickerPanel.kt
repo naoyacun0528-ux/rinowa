@@ -33,8 +33,8 @@ import androidx.compose.ui.unit.dp
 import blog.nextlab.echo.core.designsystem.RinowaMotion
 import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.data.LocalStickerStore
-import blog.nextlab.echo.model.BuiltInStickers
-import blog.nextlab.echo.model.StickerId
+import blog.nextlab.echo.core.model.BuiltInStickers
+import blog.nextlab.echo.core.model.StickerId
 
 private val panelHeight = 268.dp
 

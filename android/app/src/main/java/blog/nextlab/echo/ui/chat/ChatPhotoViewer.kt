@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import blog.nextlab.echo.media.PhotoSharing
-import blog.nextlab.echo.model.Message
-import blog.nextlab.echo.model.MessageContent
+import blog.nextlab.echo.core.model.Message
+import blog.nextlab.echo.core.model.MessageContent
 
 /**
  * スレッドから写真ビューアを開くところ。

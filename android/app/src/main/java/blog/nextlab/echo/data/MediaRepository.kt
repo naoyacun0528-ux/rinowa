@@ -6,8 +6,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import blog.nextlab.echo.media.MediaCipher
 import blog.nextlab.echo.media.MediaStoreClient
-import blog.nextlab.echo.model.ContentHash
-import blog.nextlab.echo.model.MediaId
+import blog.nextlab.echo.core.model.ContentHash
+import blog.nextlab.echo.core.model.MediaId
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.security.MessageDigest

@@ -59,11 +59,11 @@ import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.preferHighFrameRate
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
-import blog.nextlab.echo.model.MediaId
-import blog.nextlab.echo.model.Message
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageStatus
-import blog.nextlab.echo.model.previewText
+import blog.nextlab.echo.core.model.MediaId
+import blog.nextlab.echo.core.model.Message
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageStatus
+import blog.nextlab.echo.core.model.previewText
 import androidx.compose.ui.graphics.ImageBitmap
 import blog.nextlab.echo.ui.LocalStickers
 import blog.nextlab.echo.ui.common.Avatar
@@ -294,28 +294,33 @@ fun MessageRow(
 
                     // fill = false。上限に当たるまでは中身なりの幅にする。
                     Box(Modifier.weight(1f, fill = false)) {
+                        // 一度だけ取り出して、その値を見る。
+                        //
+                        // `message.content` を直接 is で見ていたが、model が別の
+                        // モジュールに出た時点でコンパイラが通さなくなった。別モジュールの
+                        // プロパティは、読むたびに同じものを返すと保証できないため。
+                        // 実際そのとおりで、**読むたびに違うものが返る型でも同じ書き方が
+                        // 通ってしまっていた**のがこれまで。
+                        val content = message.content
                         // スタンプに吹き出しは付けない。付けると「画像を送った」に見える。
-                        if (message.content is MessageContent.Sticker) {
+                        if (content is MessageContent.Sticker) {
                             StickerImage(
                                 store = LocalStickers.current,
-                                id = message.content.stickerId,
+                                id = content.stickerId,
                                 modifier = Modifier.size(stickerSize),
                             )
-                        } else if (message.content is MessageContent.Image) {
+                        } else if (content is MessageContent.Image) {
                             // 写真も同じ。写真そのものがメッセージで、枠は場所を奪うだけ。
                             PhotoMessage(
-                                image = message.content,
+                                image = content,
                                 isOutgoing = message.isOutgoing,
                                 isFirstOfGroup = isFirstOfGroup,
-                                full = mediaProvider(
-                                    message.content.mediaId,
-                                    message.content.mediaKey,
-                                ),
+                                full = mediaProvider(content.mediaId, content.mediaKey),
                                 onOpen = { cb.onPhotoClick() },
                             )
-                        } else if (message.content is MessageContent.Video) {
+                        } else if (content is MessageContent.Video) {
                             VideoMessage(
-                                video = message.content,
+                                video = content,
                                 isOutgoing = message.isOutgoing,
                                 isFirstOfGroup = isFirstOfGroup,
                                 onOpen = { cb.onVideoClick() },

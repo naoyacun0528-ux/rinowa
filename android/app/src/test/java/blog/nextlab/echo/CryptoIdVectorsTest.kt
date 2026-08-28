@@ -1,8 +1,8 @@
 package blog.nextlab.echo
 
 import blog.nextlab.echo.crypto.CryptoIds
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals

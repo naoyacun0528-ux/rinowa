@@ -15,8 +15,8 @@ import blog.nextlab.echo.MainActivity
 import blog.nextlab.echo.R
 import blog.nextlab.echo.auth.AuthState
 import blog.nextlab.echo.calls.IncomingCallService
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.launch

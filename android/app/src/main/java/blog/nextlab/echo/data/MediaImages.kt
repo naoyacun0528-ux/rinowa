@@ -5,9 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
-import blog.nextlab.echo.model.ContentHash
-import blog.nextlab.echo.model.MediaId
-import blog.nextlab.echo.model.PreparedImage
+import blog.nextlab.echo.core.model.ContentHash
+import blog.nextlab.echo.core.model.MediaId
+import blog.nextlab.echo.core.model.PreparedImage
 import java.io.ByteArrayOutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt

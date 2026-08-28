@@ -1,8 +1,8 @@
 package blog.nextlab.echo.data
 
 import blog.nextlab.echo.auth.RinowaUser
-import blog.nextlab.echo.model.UserId
-import blog.nextlab.echo.model.UserProfile
+import blog.nextlab.echo.core.model.UserId
+import blog.nextlab.echo.core.model.UserProfile
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import java.security.SecureRandom

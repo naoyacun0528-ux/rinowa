@@ -64,7 +64,7 @@ import blog.nextlab.echo.core.designsystem.glassFace
 import blog.nextlab.echo.core.designsystem.preferHighFrameRate
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
-import blog.nextlab.echo.model.Conversation
+import blog.nextlab.echo.core.model.Conversation
 import blog.nextlab.echo.ui.LocalAnalytics
 import blog.nextlab.echo.ui.common.Avatar
 import blog.nextlab.echo.ui.common.formatListTime

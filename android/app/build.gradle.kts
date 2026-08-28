@@ -123,6 +123,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:haptics"))
     implementation(project(":core:analytics"))
+    implementation(project(":core:model"))
     implementation(project(":core:wire"))
 
     implementation(libs.androidx.core.ktx)

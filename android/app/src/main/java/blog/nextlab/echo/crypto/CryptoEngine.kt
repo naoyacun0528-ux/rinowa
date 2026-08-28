@@ -1,8 +1,8 @@
 package blog.nextlab.echo.crypto
 
 import android.content.Context
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

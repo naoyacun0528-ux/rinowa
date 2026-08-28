@@ -52,7 +52,7 @@ import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
 import blog.nextlab.echo.media.EncryptedMediaSource
 import blog.nextlab.echo.media.MediaStoreClient
-import blog.nextlab.echo.model.MessageContent
+import blog.nextlab.echo.core.model.MessageContent
 import blog.nextlab.echo.ui.common.formatDuration
 
 /**

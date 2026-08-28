@@ -1,7 +1,7 @@
 package blog.nextlab.echo.crypto
 
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 
 /**
  * Rinowa の id と、暗号ライブラリが要求する id の変換。

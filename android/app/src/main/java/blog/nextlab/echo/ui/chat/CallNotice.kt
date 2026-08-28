@@ -23,8 +23,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.dp
 import blog.nextlab.echo.core.designsystem.RinowaTheme
-import blog.nextlab.echo.model.CallOutcome
-import blog.nextlab.echo.model.MessageContent
+import blog.nextlab.echo.core.model.CallOutcome
+import blog.nextlab.echo.core.model.MessageContent
 import blog.nextlab.echo.ui.common.formatCallDuration
 import blog.nextlab.echo.ui.common.formatClock
 

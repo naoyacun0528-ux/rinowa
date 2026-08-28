@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import blog.nextlab.echo.core.designsystem.RinowaTheme
-import blog.nextlab.echo.model.MessageContent
+import blog.nextlab.echo.core.model.MessageContent
 import androidx.compose.ui.graphics.ImageBitmap
 import blog.nextlab.echo.ui.common.formatDuration
 

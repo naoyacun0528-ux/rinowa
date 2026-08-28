@@ -45,10 +45,10 @@ import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
 import blog.nextlab.echo.core.haptics.RinowaHaptics
 import blog.nextlab.echo.data.LocalStickerStore
 import blog.nextlab.echo.data.RinowaServices
-import blog.nextlab.echo.model.Conversation
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.MessageText
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.Conversation
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MessageText
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.ui.auth.AccountScreen
 import blog.nextlab.echo.ui.auth.DeleteAccountScreen
 import blog.nextlab.echo.ui.auth.SignInScreen

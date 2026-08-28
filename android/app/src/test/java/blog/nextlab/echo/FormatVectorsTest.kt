@@ -2,10 +2,10 @@ package blog.nextlab.echo
 
 import blog.nextlab.echo.backup.BackupCipher
 import blog.nextlab.echo.data.MessageEnvelope
-import blog.nextlab.echo.model.CallOutcome
-import blog.nextlab.echo.model.MediaId
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageText
+import blog.nextlab.echo.core.model.CallOutcome
+import blog.nextlab.echo.core.model.MediaId
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageText
 import java.io.File
 import java.util.Base64
 import org.json.JSONArray

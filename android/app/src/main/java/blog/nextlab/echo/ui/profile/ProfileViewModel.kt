@@ -7,8 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import blog.nextlab.echo.data.RinowaServices
-import blog.nextlab.echo.model.UserId
-import blog.nextlab.echo.model.UserProfile
+import blog.nextlab.echo.core.model.UserId
+import blog.nextlab.echo.core.model.UserProfile
 import kotlinx.coroutines.launch
 
 /**

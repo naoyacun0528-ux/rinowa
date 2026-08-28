@@ -53,8 +53,8 @@ import blog.nextlab.echo.core.designsystem.backdropSource
 import blog.nextlab.echo.core.designsystem.rememberBackdropState
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
-import blog.nextlab.echo.model.Message
-import blog.nextlab.echo.model.MessageContent
+import blog.nextlab.echo.core.model.Message
+import blog.nextlab.echo.core.model.MessageContent
 import blog.nextlab.echo.ui.common.backPull
 import kotlin.math.abs
 import kotlinx.coroutines.delay

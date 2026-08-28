@@ -6,10 +6,10 @@ import android.media.AudioManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import blog.nextlab.echo.model.CallOutcome
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.CallOutcome
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

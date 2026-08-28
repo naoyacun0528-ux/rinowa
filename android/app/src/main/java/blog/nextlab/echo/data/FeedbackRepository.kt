@@ -2,7 +2,7 @@ package blog.nextlab.echo.data
 
 import androidx.compose.runtime.Immutable
 import blog.nextlab.echo.core.analytics.FeedbackCategory
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.UserId
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore

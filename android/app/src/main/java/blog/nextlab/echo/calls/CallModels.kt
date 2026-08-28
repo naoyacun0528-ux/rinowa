@@ -1,7 +1,7 @@
 package blog.nextlab.echo.calls
 
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 
 @JvmInline
 value class CallId(val value: String)

@@ -1,8 +1,8 @@
 package blog.nextlab.echo.calls
 
 import blog.nextlab.echo.bestEffort
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.data.snapshotFlow
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue

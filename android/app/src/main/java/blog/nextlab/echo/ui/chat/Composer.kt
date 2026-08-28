@@ -60,8 +60,8 @@ import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.GlassSurface
 import blog.nextlab.echo.core.designsystem.GlassTone
 import blog.nextlab.echo.core.designsystem.glassFace
-import blog.nextlab.echo.model.Message
-import blog.nextlab.echo.model.previewText
+import blog.nextlab.echo.core.model.Message
+import blog.nextlab.echo.core.model.previewText
 
 @Composable
 fun Composer(

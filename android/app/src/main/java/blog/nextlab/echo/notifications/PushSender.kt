@@ -1,7 +1,7 @@
 package blog.nextlab.echo.notifications
 
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.MessageText
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MessageText
 import com.google.firebase.auth.FirebaseAuth
 import java.net.HttpURLConnection
 import java.net.URL

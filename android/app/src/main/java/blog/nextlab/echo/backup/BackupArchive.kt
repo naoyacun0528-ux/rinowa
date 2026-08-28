@@ -1,10 +1,10 @@
 package blog.nextlab.echo.backup
 
 import blog.nextlab.echo.data.MessageEnvelope
-import blog.nextlab.echo.model.ConversationId
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageId
-import blog.nextlab.echo.model.UserId
+import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageId
+import blog.nextlab.echo.core.model.UserId
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject

@@ -2,8 +2,8 @@ package blog.nextlab.echo.backup
 
 import android.content.Context
 import blog.nextlab.echo.data.MessageEnvelope
-import blog.nextlab.echo.model.MessageContent
-import blog.nextlab.echo.model.MessageId
+import blog.nextlab.echo.core.model.MessageContent
+import blog.nextlab.echo.core.model.MessageId
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.MutableStateFlow
