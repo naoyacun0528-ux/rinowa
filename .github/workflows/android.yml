@@ -1,0 +1,89 @@
+name: Android
+
+# iOS 側は毎回 CI が回っているのに、Android は何も回っていなかった。
+# 手元で通ることと、他の環境で通ることは別。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+concurrency:
+  # 同じ枝で新しく押されたら、古いほうは止める。順番待ちに意味がない。
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 組み立てて試す
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK を置く
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Gradle を用意する
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # 同じ依存を毎回取りに行かない。main の分だけ書き込む。
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: 組み立てる
+        working-directory: android
+        # google-services.json はここに無い。app/build.gradle.kts は
+        # 見つからなければ Google Services プラグインを飛ばすので、
+        # 秘密を CI に置かずにビルドだけ確かめられる。
+        run: ./gradlew :app:assembleDebug --console=plain --stacktrace
+
+      - name: 試す
+        working-directory: android
+        run: ./gradlew test --console=plain
+
+      - name: 落ちた試験の記録を持ち帰る
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            android/**/build/reports/tests/
+            android/**/build/test-results/
+          if-no-files-found: ignore
+
+      - name: できた APK を持ち帰る
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+
+# ------------------------------------------------------------------ この先
+#
+# 端末の要る試験（androidTest）は、まだ1つも無い。
+# 書いたらここにもう1つ job を足す:
+#
+#   emulator:
+#     runs-on: ubuntu-latest        ← KVM が使えるのは Linux ランナーだけ
+#     steps:
+#       - uses: reactivecircus/android-emulator-runner@v2
+#         with:
+#           api-level: 34
+#           target: google_apis      ← Firebase を使うので GMS 入りが要る
+#           arch: x86_64
+#           script: ./gradlew connectedDebugAndroidTest
+#
+# **手元の Surface は Snapdragon X（ARM64）で、Android のエミュレータは
+# Windows/ARM64 向けに配られていない**（`sdkmanager --install emulator` が
+# "Failed to find package" を返す）。つまり手元では動かせないものを、
+# ここでなら動かせる。E2EE の複数端末の検証はここへ持ってくる。
