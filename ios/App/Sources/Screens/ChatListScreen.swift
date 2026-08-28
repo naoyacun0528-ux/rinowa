@@ -14,12 +14,10 @@ struct ChatListScreen: View {
     @Environment(\.rinowaColors) private var colors
     @Environment(\.haptics) private var haptics
 
-    @State private var query: String = ""
+    @State private var composeOpen = false
 
     private var visible: [Conversation] {
-        let sorted = store.conversations.sorted { $0.lastActivityMs > $1.lastActivityMs }
-        guard !query.isEmpty else { return sorted }
-        return sorted.filter { $0.title.localizedCaseInsensitiveContains(query) }
+        store.conversations.sorted { $0.lastActivityMs > $1.lastActivityMs }
     }
 
     var body: some View {
@@ -51,10 +49,13 @@ struct ChatListScreen: View {
             if visible.isEmpty {
                 emptyState
             }
+
+            ComposeMenu(open: $composeOpen)
+                .padding(RinowaDimens.gapLarge)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .navigationTitle("Rinowa")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $query, prompt: "会話を探す")
         .navigationDestination(for: String.self) { id in
             if let conversation = store.conversation(id: id) {
                 ChatScreen(conversationId: conversation.id)
@@ -64,15 +65,71 @@ struct ChatListScreen: View {
 
     private var emptyState: some View {
         VStack(spacing: RinowaDimens.gapSmall) {
-            Text(query.isEmpty ? "まだ会話がありません" : "見つかりません")
+            Text("まだ会話がありません")
                 .rinowaType(RinowaType.listName)
                 .foregroundStyle(colors.textSecondary)
-            if query.isEmpty {
-                Text("右上から始められます")
-                    .rinowaType(RinowaType.listPreview)
-                    .foregroundStyle(colors.textTertiary)
-            }
+            Text("右下の＋から始められます")
+                .rinowaType(RinowaType.listPreview)
+                .foregroundStyle(colors.textTertiary)
         }
+    }
+}
+
+/// ＋を押すと、行き先が2つ出る。
+///
+/// **「どちらでしたか」と尋ねる1画面にしない。** 人を追加するのとグループを作るのは、
+/// ボタンを押す*前*に決まっている別々の意図なので、選択は押した瞬間にある。
+/// 1段あとの、読んでみて初めて場所違いと分かる画面ではない。
+///
+/// ＋は開くときに閉じる印へ変わる。新しい操作が上に現れるのではなく、
+/// **同じ操作のもう一方の状態**。
+private struct ComposeMenu: View {
+
+    @Binding var open: Bool
+    @Environment(\.rinowaColors) private var colors
+    @Environment(\.haptics) private var haptics
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: RinowaDimens.gapSmall) {
+            if open {
+                item("友達を追加")
+                item("グループを作る")
+                    .padding(.bottom, RinowaDimens.gapTiny)
+            }
+
+            Button {
+                haptics.fire(.softConfirm)
+                withAnimation(RinowaMotion.pop) { open.toggle() }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(colors.textPrimary)
+                    .rotationEffect(.degrees(open ? 45 : 0))
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(.regularMaterial))
+                    .overlay(Circle().strokeBorder(colors.glassEdgeLow, lineWidth: 1))
+                    .shadow(color: colors.glassShadow.opacity(0.18), radius: 10, y: 4)
+            }
+            .buttonStyle(.plain)
+        }
+        .animation(RinowaMotion.pop, value: open)
+    }
+
+    private func item(_ label: String) -> some View {
+        Button {
+            haptics.fire(.navigation)
+            withAnimation(RinowaMotion.settle) { open = false }
+        } label: {
+            Text(label)
+                .rinowaType(RinowaType.label)
+                .foregroundStyle(colors.textPrimary)
+                .padding(.horizontal, RinowaDimens.gap)
+                .frame(height: RinowaDimens.touchTarget)
+                .background(Capsule().fill(.regularMaterial))
+                .overlay(Capsule().strokeBorder(colors.glassEdgeLow, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .transition(.move(edge: .trailing).combined(with: .opacity))
     }
 }
 

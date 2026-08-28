@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import RinowaCore
 
 /// 会話の中身。
@@ -16,6 +17,8 @@ struct ChatScreen: View {
 
     @State private var draft: String = ""
     @State private var replyingTo: ChatMessage?
+    @State private var viewing: IdentifiedImage?
+    @StateObject private var call = CallController()
 
     private var conversation: Conversation? { store.conversation(id: conversationId) }
 
@@ -31,12 +34,37 @@ struct ChatScreen: View {
                     onSend: send
                 )
             }
+
+            // **通話は画面を奪わない。** 上に重ねるだけなので、話しながら会話も読める。
+            if call.state != .idle {
+                CallOverlay(call: call)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+        }
+        .animation(RinowaMotion.settle, value: call.state)
+        .fullScreenCover(item: $viewing) { image in
+            PhotoViewer(image: image.value) { viewing = nil }
         }
         .navigationTitle(conversation?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink { SafetyScreen(title: conversation?.title ?? "") } label: {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    haptics.fire(.navigation)
+                    call.dial(to: conversation?.title ?? "", video: false)
+                } label: {
+                    Image(systemName: "phone")
+                }
+                Button {
+                    haptics.fire(.navigation)
+                    call.dial(to: conversation?.title ?? "", video: true)
+                } label: {
+                    Image(systemName: "video")
+                }
+                NavigationLink {
+                    SafetyScreen(title: conversation?.title ?? "")
+                } label: {
                     Image(systemName: "lock.shield")
                 }
             }
@@ -63,7 +91,8 @@ struct ChatScreen: View {
                                 onReply: { replyingTo = $0 },
                                 onReact: { index in
                                     store.toggleReaction(index, on: message.id, in: conversationId)
-                                }
+                                },
+                                onOpenPhoto: { viewing = IdentifiedImage(value: $0) }
                             )
                             .id(message.id)
                         }

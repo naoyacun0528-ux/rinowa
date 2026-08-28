@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import RinowaCore
 
 /// 画面が扱う形。
@@ -19,6 +20,9 @@ struct ChatMessage: Identifiable, Equatable {
     var reactions: [Reaction]
     var replyTo: Quote?
     var isMine: Bool
+    /// 端末に既に届いているもの。**まだなら nil。**
+    /// nil でも幅と高さは `content` が持っているので、届く前から場所を空けられる。
+    var media: MediaAttachment? = nil
 
     enum Content: Equatable {
         case text(String)
@@ -31,6 +35,15 @@ struct ChatMessage: Identifiable, Equatable {
         case locked
         /// 読まれたあとに取り消したもの。空の本文とは別の状態。
         case retracted
+    }
+
+    /// 写真や動画の本体。
+    ///
+    /// 本文と同じで、**端末の外にある間は封がしてある**。ここに現れるのは
+    /// 開いたあとのものだけなので、`RinowaCore` の型には無い。
+    struct MediaAttachment: Equatable {
+        var url: URL? = nil
+        var thumbnail: UIImage? = nil
     }
 
     struct Quote: Equatable {

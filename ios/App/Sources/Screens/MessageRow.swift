@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import RinowaCore
 
 /// 1通ぶんの行。
@@ -13,6 +14,9 @@ struct MessageRow: View {
     let showSender: Bool
     let onReply: (ChatMessage) -> Void
     let onReact: (Int) -> Void
+    /// 写真を大きく開く。行は開き方を知らない——**開く場所は会話画面が持つ**ので、
+    /// 拡大中にスレッドが下へスクロールしても、写真は動かない。
+    var onOpenPhoto: (UIImage?) -> Void = { _ in }
 
     @Environment(\.rinowaColors) private var colors
     @Environment(\.haptics) private var haptics
@@ -114,11 +118,36 @@ struct MessageRow: View {
                 .frame(width: 96, height: 96)
 
         case .image(let width, let height):
-            MediaPlaceholder(aspect: CGFloat(width) / CGFloat(max(height, 1)), label: "写真")
+            let aspect = CGFloat(width) / CGFloat(max(height, 1))
+            Button {
+                haptics.fire(.softConfirm)
+                onOpenPhoto(message.media?.thumbnail)
+            } label: {
+                if let thumbnail = message.media?.thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                        .aspectRatio(aspect, contentMode: .fit)
+                        .frame(maxWidth: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    MediaPlaceholder(aspect: aspect, label: "写真")
+                }
+            }
+            .buttonStyle(.plain)
 
         case .video(let seconds):
-            MediaPlaceholder(aspect: 16.0 / 9.0,
-                             label: RinowaFormat.callDuration(seconds: seconds))
+            if let url = message.media?.url {
+                InlineVideo(url: url,
+                            thumbnail: message.media?.thumbnail,
+                            durationMs: Int64(seconds) * 1000,
+                            aspect: 16.0 / 9.0)
+            } else {
+                // **本体がまだ無いなら、再生ボタンは出さない。**
+                // 押しても何も起きないボタンは、壊れているのと見分けがつかない。
+                MediaPlaceholder(aspect: 16.0 / 9.0,
+                                 label: RinowaFormat.callDuration(seconds: seconds))
+            }
 
         case .call(let video, let outcome, let seconds):
             CallNotice(video: video, outcome: outcome, seconds: seconds, tint: onBubble)
