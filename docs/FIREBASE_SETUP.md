@@ -158,7 +158,7 @@ firebase deploy --only firestore:rules,storage --project echo-cfe37
 - Firestore インデックスの定義
 - App Check（Prototype 2）
 
-`firebase login` は**すでに済んでいます**（naoyacun0528@gmail.com）。
+`firebase login` は**すでに済んでいます**（このプロジェクトの所有者のアカウント）。
 **私がパスワードや認証情報を扱うことはありません。**
 
 ---
