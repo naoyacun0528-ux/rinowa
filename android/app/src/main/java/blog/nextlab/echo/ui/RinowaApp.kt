@@ -638,32 +638,58 @@ private fun BackupRoute(
 ) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
-    var state by remember {
-        mutableStateOf(BackupUiState())
-    }
+    var state by remember { mutableStateOf(BackupUiState(busy = true)) }
 
     val consent = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
         state = if (result.resultCode == android.app.Activity.RESULT_OK) {
-            BackupUiState(
-                message = "Google ドライブへの許可が取れました。もう一度押してください。",
-            )
+            // **繋がった。もう一度押させない。** 許可は取れているので、
+            // 次に進める形で戻す。
+            BackupUiState(connected = true, hasBackup = state.hasBackup)
         } else {
             BackupUiState(
+                hasBackup = state.hasBackup,
                 message = "許可されなかったので、バックアップはできません。",
                 failed = true,
             )
         }
     }
 
-    // 復元するものがあるか。静かに1回だけ聞く。何も預けていないアカウントに
-    // 「復元」と出しても何も差し出していない。
+    /** 許可を確かめ、要るなら同意画面を出す。**画面を出すのは押されたときだけ。** */
+    suspend fun connect(interactive: Boolean) {
+        val authorization = DriveAuthorization(context)
+        when (val outcome = authorization.authorize()) {
+            is DriveAuthorization.Outcome.Granted ->
+                state = BackupUiState(connected = true, hasBackup = state.hasBackup)
+
+            is DriveAuthorization.Outcome.NeedsConsent ->
+                if (interactive) {
+                    consent.launch(
+                        androidx.activity.result.IntentSenderRequest
+                            .Builder(outcome.intent.intentSender)
+                            .build(),
+                    )
+                } else {
+                    // 開いただけの人にダイアログは出さない。押されるまで待つ。
+                    state = BackupUiState(hasBackup = state.hasBackup)
+                }
+
+            is DriveAuthorization.Outcome.Failed ->
+                state = BackupUiState(
+                    hasBackup = state.hasBackup,
+                    message = if (interactive) outcome.message else null,
+                    failed = interactive,
+                )
+        }
+    }
+
+    // 開いた時点で、置き場所と控えの有無を静かに1回だけ確かめる。
+    // 何も預けていないアカウントに「復元」と出しても、何も差し出していない。
     LaunchedEffect(backup) {
         val existing = backup?.available()?.getOrNull().orEmpty()
-        if (existing.isNotEmpty()) {
-            state = BackupUiState(hasBackup = true)
-        }
+        state = BackupUiState(busy = true, hasBackup = existing.isNotEmpty())
+        connect(interactive = false)
     }
 
     /** 失敗を、同意の要求か、人が読める1文かに変える。 */
@@ -676,11 +702,12 @@ private fun BackupRoute(
                         .Builder(outcome.intent.intentSender)
                         .build(),
                 )
-                state = BackupUiState()
+                state = BackupUiState(hasBackup = state.hasBackup)
             }
 
             else -> {
                 state = BackupUiState(
+                    connected = state.connected,
                     hasBackup = state.hasBackup,
                     message = failure.message ?: "うまくいきませんでした",
                     failed = true,
@@ -691,14 +718,19 @@ private fun BackupRoute(
 
     BackupScreen(
         state = state,
+        onConnectDrive = {
+            state = BackupUiState(hasBackup = state.hasBackup, busy = true)
+            scope.launch { connect(interactive = true) }
+        },
         onBackUp = { secret ->
             val owner = me ?: return@BackupScreen
             val repository = backup ?: return@BackupScreen
-            state = BackupUiState(busy = true)
+            state = BackupUiState(connected = true, hasBackup = state.hasBackup, busy = true)
             scope.launch {
                 repository.backUp(owner, secret.toCharArray()).fold(
                     onSuccess = { summary ->
                         state = BackupUiState(
+                            connected = true,
                             hasBackup = true,
                             message = "" + summary.messages + "件を保存しました（" +
                                 (summary.bytes / 1024) + " KB）。",
@@ -710,11 +742,12 @@ private fun BackupRoute(
         },
         onRestore = { secret ->
             val repository = backup ?: return@BackupScreen
-            state = BackupUiState(hasBackup = true, busy = true)
+            state = BackupUiState(connected = true, hasBackup = true, busy = true)
             scope.launch {
                 val newest = repository.available().getOrNull()?.firstOrNull()
                 if (newest == null) {
                     state = BackupUiState(
+                        connected = true,
                         message = "ドライブにバックアップがありません。",
                         failed = true,
                     )
@@ -723,6 +756,7 @@ private fun BackupRoute(
                 repository.restore(newest, secret.toCharArray()).fold(
                     onSuccess = { count ->
                         state = BackupUiState(
+                            connected = true,
                             hasBackup = true,
                             message = "" + count + "件を復元しました。開けなかったメッセージが読めるようになります。",
                         )

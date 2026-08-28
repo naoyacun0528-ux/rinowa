@@ -1,20 +1,15 @@
 package blog.nextlab.echo.ui.calls
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import blog.nextlab.echo.core.designsystem.RinowaMotion
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsPadding
-import blog.nextlab.echo.calls.CallKind
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.offset
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,16 +18,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,16 +46,20 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import blog.nextlab.echo.R
 import blog.nextlab.echo.calls.CallController
+import blog.nextlab.echo.calls.CallKind
 import blog.nextlab.echo.calls.CallRecord
 import blog.nextlab.echo.calls.CallState
-import blog.nextlab.echo.ui.LocalInPictureInPicture
+import blog.nextlab.echo.core.designsystem.RinowaMotion
 import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
+import blog.nextlab.echo.ui.LocalInPictureInPicture
 import kotlinx.coroutines.delay
 
 /**
@@ -141,11 +145,11 @@ private fun IncomingCall(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            CallButton(label = "拒否", tint = Color(0xFFE5484D)) {
+            CallButton(label = "拒否", tint = Color(0xFFE5484D), icon = R.drawable.ic_call_end) {
                 haptics.perform(HapticToken.SoftConfirm)
                 onDecline()
             }
-            CallButton(label = "応答", tint = Color(0xFF30A46C)) {
+            CallButton(label = "応答", tint = Color(0xFF30A46C), icon = R.drawable.ic_call) {
                 haptics.perform(HapticToken.Send)
                 onAccept()
             }
@@ -383,7 +387,7 @@ private fun VideoCall(controller: CallController, peerName: String) {
                 }
 
                 Spacer(Modifier.height(24.dp))
-                CallButton(label = "終了", tint = Color(0xFFE5484D)) {
+                CallButton(label = "終了", tint = Color(0xFFE5484D), icon = R.drawable.ic_call_end) {
                     haptics.perform(HapticToken.SoftConfirm)
                     controller.hangUp()
                 }
@@ -478,23 +482,45 @@ private fun OngoingCall(controller: CallController, peerName: String) {
         }
 
         Spacer(Modifier.height(36.dp))
-        CallButton(label = "終了", tint = Color(0xFFE5484D)) {
+        CallButton(label = "終了", tint = Color(0xFFE5484D), icon = R.drawable.ic_call_end) {
             haptics.perform(HapticToken.SoftConfirm)
             controller.hangUp()
         }
     }
 }
 
+/**
+ * 通話の丸ボタン。
+ *
+ * **色だけで意味を持たせない。** 前は塗っただけの丸で、赤か緑かだけが違っていた。
+ * 色が見分けにくい人には同じ丸が二つ並んでいるだけになるし、
+ * 誰であっても、鳴っている最中に下の小さな文字を読む余裕はない。
+ * 受話器の向きは、読まなくても分かる。
+ */
 @Composable
-private fun CallButton(label: String, tint: Color, onClick: () -> Unit) {
+private fun CallButton(
+    label: String,
+    tint: Color,
+    @DrawableRes icon: Int,
+    onClick: () -> Unit,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)
                 .background(tint)
                 .clickable(onClick = onClick),
-        )
+        ) {
+            Icon(
+                painter = painterResource(icon),
+                // 文字が下にあるので、読み上げには要らない。二度言うことになる。
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(30.dp),
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Text(label, style = RinowaTheme.type.labelSmall, color = Color(0xFFC8C8D0))
     }
