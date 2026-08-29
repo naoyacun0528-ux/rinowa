@@ -14,7 +14,12 @@ struct ChatListScreen: View {
     @Environment(\.rinowaColors) private var colors
     @Environment(\.haptics) private var haptics
 
-    @State private var composeOpen = false
+    @State private var composeOpen: Bool
+
+    /// 既定は閉じている。開いた状態を撮るときだけ true を渡す。
+    init(composeOpen: Bool = false) {
+        _composeOpen = State(initialValue: composeOpen)
+    }
 
     private var visible: [Conversation] {
         store.conversations.sorted { $0.lastActivityMs > $1.lastActivityMs }
