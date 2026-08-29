@@ -104,6 +104,7 @@ private fun Screen.parent(): Screen = when (this) {
     Screen.DeleteAccount -> Screen.Account
     Screen.Privacy -> Screen.Account
     Screen.Backup -> Screen.Account
+    Screen.Feedback -> Screen.Account
     is Screen.Safety -> Screen.Chat(this.conversation)
     Screen.DirectLab -> Screen.Account
     Screen.Profile -> Screen.Account

@@ -129,16 +129,36 @@ class MessageRepository(
      * 開けないとき（サインアウト、鍵が未着、圏外）は null。呼び出し側は本文なしの
      * 通知を出す — 届いたこと自体は伝える価値がある。
      */
-    suspend fun newestBody(conversationId: ConversationId, me: UserId): String? {
+    suspend fun newestBody(conversationId: ConversationId, me: UserId): String? =
+        newestBody(conversationId, me, com.google.firebase.firestore.Source.SERVER)
+
+    /**
+     * 一覧に出すための、最新1件の本文。
+     *
+     * **サーバーに聞かない。** 通知と違って、一覧は1件前の内容でも困らない。
+     * 新しいものが届けば会話のフローが流れて描き直される。
+     *
+     * ここを Source.SERVER のまま通知と共有していたとき、一覧を開くたびに
+     * 会話の数だけ往復していた。10件あれば10往復。それが「起動してから一覧が
+     * 開くまで数秒」の正体で、**圏外では中身がまったく出なかった**。
+     */
+    suspend fun newestBodyCached(conversationId: ConversationId, me: UserId): String? =
+        newestBody(conversationId, me, com.google.firebase.firestore.Source.DEFAULT)
+
+    private suspend fun newestBody(
+        conversationId: ConversationId,
+        me: UserId,
+        source: com.google.firebase.firestore.Source,
+    ): String? {
         val snapshot = runCatching {
             messages(conversationId)
                 .orderBy(RinowaDb.Messages.SENT_AT, Query.Direction.DESCENDING)
                 .limit(1)
-                // 明示的にサーバーから読む。
+                // 通知は明示的にサーバーから読む。
                 //
                 // push は必ずメッセージより先に着く。既定のままだとローカルキャッシュが
                 // 答えて、通知が常に1件前の内容になる（それぞれは正常に見える）。
-                .get(com.google.firebase.firestore.Source.SERVER)
+                .get(source)
                 .await()
         }
             .onFailure { android.util.Log.w("Rinowa/push", "newest message failed", it) }

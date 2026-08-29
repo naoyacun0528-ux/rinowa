@@ -2,18 +2,21 @@ package blog.nextlab.echo.ui.chatlist
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import blog.nextlab.echo.data.RinowaServices
-import blog.nextlab.echo.data.UserRepository
 import blog.nextlab.echo.core.model.Conversation
-import blog.nextlab.echo.data.MessageRepository
-import blog.nextlab.echo.core.model.MessageText
 import blog.nextlab.echo.core.model.ConversationId
+import blog.nextlab.echo.core.model.MessageText
 import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.core.model.UserProfile
-import androidx.compose.runtime.mutableStateOf
+import blog.nextlab.echo.data.MessageRepository
+import blog.nextlab.echo.data.RinowaServices
+import blog.nextlab.echo.data.UserRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,14 +61,17 @@ class ChatListViewModel(
             // 入っている必要がある。
             services.settings.pull(me)
             services.conversations.observe(me).collect { list ->
-                _conversations.value = list.map { conversation ->
-                    conversation.copy(
-                        unreadCount = unreadFor(conversation),
-                        preview = previewFor(conversation),
-                    )
-                }
-                refreshContacts(list)
+                // **まず、そのまま出す。**
+                //
+                // 未読数もプレビューも、出すのに時間がかかる。それを待ってから
+                // 描くと、会話の名前すら出ないまま画面が空のままになる。
+                // 名前と時刻は最初から手元にあるので、先に見せる。
+                _conversations.value = list
                 loading = false
+                refreshContacts(list)
+
+                // 足りない分をあとから埋める。
+                _conversations.value = decorate(list)
             }
         }
     }
@@ -102,7 +108,9 @@ class ChatListViewModel(
         if (conversation.preview.value != MessageRepository.LOCKED_PREVIEW) {
             return conversation.preview
         }
-        val opened = services.messages.newestBody(conversation.id, me) ?: return conversation.preview
+        // 一覧はサーバーに聞かない。手元にあるもので出す。
+        val opened = services.messages.newestBodyCached(conversation.id, me)
+            ?: return conversation.preview
         return MessageText(opened)
     }
 
@@ -115,16 +123,29 @@ class ChatListViewModel(
      * 消えていたのは、その経路がメモリ上の一覧を直接いじっていたから。
      */
     fun refreshVisibleState() {
-        android.util.Log.i("Rinowa/unread", "refreshVisibleState")
         viewModelScope.launch {
-            _conversations.value = _conversations.value.map { conversation ->
-                conversation.copy(
-                    unreadCount = unreadFor(conversation),
-                    preview = previewFor(conversation),
-                )
-            }
+            _conversations.value = decorate(_conversations.value)
         }
     }
+
+    /**
+     * 未読数とプレビューを埋める。**会話ごとに同時に走らせる。**
+     *
+     * 以前は map の中で suspend を呼んでいて、会話が10件あれば10回ぶんの待ちが
+     * 順番に積み上がっていた。どれも互いを必要としないので、待つ意味が無い。
+     * 10回の待ちが1回ぶんの長さになる。
+     */
+    private suspend fun decorate(list: List<Conversation>): List<Conversation> =
+        coroutineScope {
+            list.map { conversation ->
+                async {
+                    conversation.copy(
+                        unreadCount = unreadFor(conversation),
+                        preview = previewFor(conversation),
+                    )
+                }
+            }.awaitAll()
+        }
 
     private suspend fun unreadFor(conversation: Conversation): Int {
         val since = services.conversations.lastReadAt(me, conversation.id)

@@ -17,6 +17,8 @@ import blog.nextlab.echo.core.analytics.NoOpAnalytics
 import blog.nextlab.echo.core.haptics.AndroidHaptics
 import blog.nextlab.echo.core.haptics.HapticTier
 import blog.nextlab.echo.core.haptics.RinowaHaptics
+import blog.nextlab.echo.core.model.ReactionPalette
+import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.crypto.CryptoEngine
 import blog.nextlab.echo.crypto.CryptoProblems
 import blog.nextlab.echo.crypto.CryptoTransport
@@ -24,16 +26,14 @@ import blog.nextlab.echo.crypto.ToDeviceLedger
 import blog.nextlab.echo.data.ConversationRepository
 import blog.nextlab.echo.data.FeedbackRepository
 import blog.nextlab.echo.data.LocalStickerStore
-import blog.nextlab.echo.data.RinowaServices
 import blog.nextlab.echo.data.MediaRepository
 import blog.nextlab.echo.data.MessageRepository
 import blog.nextlab.echo.data.ProfilePhotos
+import blog.nextlab.echo.data.RinowaServices
 import blog.nextlab.echo.data.SettingsRepository
 import blog.nextlab.echo.data.StickerRepository
 import blog.nextlab.echo.data.UserRepository
 import blog.nextlab.echo.media.MediaStoreClient
-import blog.nextlab.echo.core.model.ReactionPalette
-import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.notifications.PushSender
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -43,6 +43,7 @@ import com.google.firebase.firestore.PersistentCacheSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -141,13 +142,20 @@ class RinowaApplication : Application() {
         stickers = LocalStickerStore(
             context = this,
             remote = firestore?.let(::StickerRepository),
-        ).apply {
-            // 同梱セットの展開は小さなファイル数個ぶん。最初のスタンプが仮画像に
-            // ならないよう先にやる。
-            installBuiltIns()
-            // 前回の起動で取得したものはディスクに残っている。ここで索引に取り込むから、
-            // 入れ直しても全部を落とし直さずに済む。
-            rescan()
+        )
+
+        // **ここでディスクを触らない。**
+        //
+        // onCreate は最初の1コマより前に走る。ここでファイルを開いた分だけ、
+        // 起動が遅れる。同梱セットの展開も、前回落としたものの読み直しも、
+        // 最初のスタンプが必要になるまでには十分間に合う。
+        //
+        // 以前はここで installBuiltIns() と rescan() を直接呼んでいた。
+        // rescan() は自作スタンプを**全部メモリに読み込む**ので、持っている人ほど
+        // 起動が遅くなっていた。持っている人ほど遅い、は逆になっている。
+        CoroutineScope(Dispatchers.IO).launch {
+            stickers.installBuiltIns()
+            stickers.rescan()
         }
 
         if (firestore != null) {
