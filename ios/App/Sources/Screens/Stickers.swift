@@ -42,12 +42,9 @@ enum BuiltInStickers {
     static func image(_ id: String) -> UIImage? {
         if let hit = cache[id] { return hit }
         guard let entry = entry(id) else { return nil }
-        guard let url = Bundle.main.url(
-            forResource: entry.fileName,
-            withExtension: "png",
-            subdirectory: "Resources/Stickers"
-        ) ?? Bundle.main.url(forResource: entry.fileName, withExtension: "png"),
-            let image = UIImage(contentsOfFile: url.path)
+        // 束ねると平らに並ぶので、名前だけで引ける。
+        guard let url = Bundle.main.url(forResource: entry.fileName, withExtension: "png"),
+              let image = UIImage(contentsOfFile: url.path)
         else { return nil }
         cache[id] = image
         return image
