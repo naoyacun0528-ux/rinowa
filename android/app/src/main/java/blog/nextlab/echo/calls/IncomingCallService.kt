@@ -187,15 +187,17 @@ class IncomingCallService : Service() {
         // あるが誤解を招く（キャッシュにはあった、時間が足りなかった）。
         //
         // なので顔なしで先に出し、同じ通知にあとから顔を足す。着信は写真を待たない。
-        val callerFace: android.graphics.Bitmap? = null
+        // ここは必ず写真なし。**null を渡していることが読めるように、そう書く。**
+        // 変数を挟んで ?.let を通すと「写真があれば付ける」ように見えるが、
+        // 上のとおり必ず無い。あとから refinePhoto が同じ通知を差し替える。
         val notification = IncomingCallNotifier.build(
             this,
             callId,
             conversationId,
             callerName,
             kindLabel,
-            callerFace?.let(android.graphics.drawable.Icon::createWithAdaptiveBitmap),
-            callerFace,
+            null,
+            null,
         )
 
         refinePhoto(callId, conversationId, callerName, kindLabel)

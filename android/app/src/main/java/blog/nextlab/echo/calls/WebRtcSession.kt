@@ -19,9 +19,9 @@ import org.webrtc.PeerConnectionFactory
 import org.webrtc.RtpReceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
 /**
  * WebRTC の接続1本。アプリの他の場所が WebRTC のコールバックを見なくて済むように包む。
@@ -180,15 +180,30 @@ class WebRtcSession(
         connection?.createAnswer(observer, MediaConstraints())
     }
 
+    /**
+     * SDP を作る。WebRTC のコールバックを待つ唯一の場所。
+     *
+     * **suspendCancellableCoroutine でなければならない。**
+     *
+     * かけてすぐ切る、は普通に起きる操作で、そのとき通話のスコープごと畳まれる。
+     * ただの suspendCoroutine は取り消しを見ないので、WebRTC が二度と応えなければ
+     * この待ちは**永久に解けない**。呼んだ側は終わらない処理を抱えたままになる。
+     *
+     * 遅れて返ってくる場合も面倒で、そのときには connection が既に捨てられている。
+     * 捨てたあとの connection に触ると native 側で落ちるので、
+     * 取り消し済みなら**何もせず戻る**。
+     */
     private suspend fun negotiate(request: (SdpObserver) -> Unit): String =
-        suspendCoroutine { continuation ->
+        suspendCancellableCoroutine { continuation ->
             request(object : SimpleSdpObserver() {
                 override fun onCreateSuccess(description: SessionDescription) {
+                    if (!continuation.isActive) return
                     connection?.setLocalDescription(SimpleSdpObserver(), description)
                     continuation.resume(description.description)
                 }
 
                 override fun onCreateFailure(reason: String?) {
+                    if (!continuation.isActive) return
                     // そのまま出す。「通話を開始できませんでした」には情報が無く、
                     // 本当の理由がまだ残っているのはこの層。
                     continuation.resumeWithException(IllegalStateException("createSdp: $reason"))
