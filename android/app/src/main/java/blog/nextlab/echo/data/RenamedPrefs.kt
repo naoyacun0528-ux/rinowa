@@ -18,9 +18,11 @@ import android.content.SharedPreferences
  * 「いずれ書く」としか約束しない。
  */
 fun Context.renamedPreferences(name: String, formerly: String): SharedPreferences {
+    // rename-ok: これが移行そのもの。新旧どちらも名指しで開く必要がある。
     val prefs = getSharedPreferences(name, Context.MODE_PRIVATE)
     if (prefs.all.isNotEmpty()) return prefs
 
+    // rename-ok: 同上。旧名を開くのがこの関数の仕事。
     val old = getSharedPreferences(formerly, Context.MODE_PRIVATE)
     val had = old.all
     if (had.isEmpty()) return prefs

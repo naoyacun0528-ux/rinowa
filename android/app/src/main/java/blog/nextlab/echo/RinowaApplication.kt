@@ -158,13 +158,6 @@ class RinowaApplication : Application() {
             stickers.installBuiltIns()
             stickers.rescan()
 
-            // 前の版が filesDir に貯めた写真を捨てる。あそこは消せない側で、
-            // 上限も無かった。次に開いたときに落とし直す。
-            MediaBudget.forgetOldLocation(this@RinowaApplication)
-            MediaBudget.prune(
-                java.io.File(cacheDir, MediaRepository.DIR),
-                MediaBudget.bytesFor(this@RinowaApplication),
-            )
         }
 
         if (firestore != null) {
@@ -224,6 +217,7 @@ class RinowaApplication : Application() {
                             // データベースの表ではなく設定ファイル。数十個の id を
                             // 受信箱を空にするたびに書くだけで、しかもプロセスが死んでも
                             // 残る必要がある（持っている意味がそこにある）。
+                            // rename-ok: 改名より後に作ったので、旧名が存在しない。
                             private val prefs = getSharedPreferences(
                                 "rinowa.todevice",
                                 MODE_PRIVATE,

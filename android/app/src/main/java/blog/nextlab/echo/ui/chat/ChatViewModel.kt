@@ -198,9 +198,17 @@ class ChatViewModel(
      * 落とすのは見えている2枚。
      */
     fun requestMedia(id: MediaId, key: ByteArray? = null) {
-        val media = services.media ?: return
-        if (media.cached(id) != null || media.isKnownMissing(id)) return
+        val media = services.media ?: run {
+            android.util.Log.w("Rinowa/media", "写真の置き場そのものが無い")
+            return
+        }
+        if (media.cached(id) != null) return
+        if (media.isKnownMissing(id)) return
         if (!requestedMedia.add(id)) return
+        android.util.Log.i(
+            "Rinowa/media",
+            "${id.value.take(8)}: 取りに行く（鍵は${if (key == null) "無し" else "有り"}）",
+        )
         viewModelScope.launch {
             if (media.fetch(id, key)) mediaRevision++
         }

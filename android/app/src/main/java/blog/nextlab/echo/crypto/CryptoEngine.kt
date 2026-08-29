@@ -3,6 +3,9 @@ package blog.nextlab.echo.crypto
 import android.content.Context
 import blog.nextlab.echo.core.model.ConversationId
 import blog.nextlab.echo.core.model.UserId
+import blog.nextlab.echo.data.renamedPreferences
+import java.io.File
+import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -13,8 +16,6 @@ import org.matrix.rustcomponents.sdk.crypto.EventEncryptionAlgorithm
 import org.matrix.rustcomponents.sdk.crypto.OlmMachine
 import org.matrix.rustcomponents.sdk.crypto.Request
 import org.matrix.rustcomponents.sdk.crypto.RequestType
-import java.io.File
-import java.security.SecureRandom
 import uniffi.matrix_sdk_crypto.DecryptionSettings
 import uniffi.matrix_sdk_crypto.TrustRequirement
 
@@ -506,18 +507,39 @@ class CryptoEngine private constructor(
             onFailure: (String) -> Unit = {},
         ): CryptoEngine? = withContext(Dispatchers.IO) {
             runCatching {
-                val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                // アプリの名前が変わったとき、設定ファイルも改名した。**ここだけ
+                // 移行を書き忘れていて**、端末 id が新しく作り直された。鍵の保管庫は
+                // ディレクトリ名が利用者 id なのでそのまま残り、中身は古い端末の
+                // ものだった。結果、保管庫が開かず全部が「まだ開けません」になる。
+                val prefs = context.renamedPreferences(PREFS, FORMER_PREFS)
+                val store = File(context.filesDir, "crypto/${me.value}").apply { mkdirs() }
+
                 val deviceId = prefs.getString(KEY_DEVICE_ID, null) ?: newDeviceId().also {
                     prefs.edit().putString(KEY_DEVICE_ID, it).apply()
                 }
 
-                val store = File(context.filesDir, "crypto/${me.value}").apply { mkdirs() }
-                val machine = OlmMachine(
-                    userId = CryptoIds.matrixUser(me),
-                    deviceId = deviceId,
-                    path = store.absolutePath,
-                    passphrase = null,
-                )
+                val machine = runCatching {
+                    open(me, deviceId, store)
+                }.getOrElse { failure ->
+                    // **保管庫のほうが正しい。**
+                    //
+                    // 秘密鍵を持っているのは保管庫で、設定ファイルはただの覚え書き。
+                    // 食い違ったとき、覚え書きを信じて作り直すと、この端末が過去に
+                    // 受け取ったものを二度と開けなくなる。保管庫が名乗る id を採用して、
+                    // 覚え書きのほうを直す。
+                    //
+                    // 上の移行が入ったので、この道を通るのは移行より前に一度でも
+                    // 起動してしまった端末だけ。それでも消さない——同じ壊れ方は、
+                    // 設定ファイルを触るたびに作れてしまう。
+                    val recovered = deviceIdIn(failure.message)
+                        ?: throw failure
+                    android.util.Log.w(
+                        TAG,
+                        "device id が食い違っていた。保管庫の $recovered を採用する",
+                    )
+                    prefs.edit().putString(KEY_DEVICE_ID, recovered).commit()
+                    open(me, recovered, store)
+                }
                 CryptoEngine(machine, transport, me)
             }.onFailure {
                 CryptoProblems.record("open", it)
@@ -525,13 +547,50 @@ class CryptoEngine private constructor(
             }.getOrNull()
         }
 
+        private fun open(me: UserId, deviceId: String, store: File): OlmMachine =
+            OlmMachine(
+                userId = CryptoIds.matrixUser(me),
+                deviceId = deviceId,
+                path = store.absolutePath,
+                passphrase = null,
+            )
+
+        /**
+         * 食い違いの知らせから、保管庫が名乗る端末 id を取り出す。
+         *
+         *     the account in the store doesn't match the account in the constructor:
+         *     expected @uid:lowan.local:AAAAAAAAAA, got @uid:lowan.local:BBBBBBBBBB
+         *
+         * 文面に頼るのは弱い。だが**保管庫は自分の端末 id を問い合わせる口を
+         * 持っていない**（開かないと何も答えない）ので、開けなかったときに
+         * 分かるのはここだけ。文面が変わったら復旧に失敗するが、そのときも
+         * 壊れ方は今と同じで、悪くはならない。
+         */
+        private fun deviceIdIn(message: String?): String? {
+            val text = message ?: return null
+            if (!text.contains("doesn't match the account")) return null
+            // **欲しいのは expected のほう。** got は今こちらが渡した値で、
+            // expected が保管庫の中に入っている本物。最初これを逆に読んで、
+            // 渡した値をそのまま採用し直すという、何もしない修復を書いた。
+            // 実機のログに prefs=JTTAJOOOVT と got JTTAJOOOVT が並んで気づいた。
+            val owner = text.substringAfter("expected ", "").substringBefore(",")
+            return owner.trim().substringAfterLast(':')
+                .takeIf { it.length == DEVICE_ID_LENGTH && it.all(Char::isLetterOrDigit) }
+        }
+
         private const val PREFS = "rinowa_crypto"
+
+        /** アプリが Echo だった頃のファイル名。[renamedPreferences] を参照。 */
+        private const val FORMER_PREFS = "echo_crypto"
+
         private const val KEY_DEVICE_ID = "deviceId"
+        private const val DEVICE_ID_LENGTH = 10
+        private const val TAG = "Rinowa/crypto"
 
         /** 大文字10文字。Matrix の device id の慣例に合わせる。 */
         private fun newDeviceId(): String {
             val random = SecureRandom()
-            return (1..10).map { ('A' + random.nextInt(26)) }.joinToString("")
+            return (1..DEVICE_ID_LENGTH).map { ('A' + random.nextInt(26)) }.joinToString("")
         }
     }
 }

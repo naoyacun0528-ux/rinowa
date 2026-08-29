@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
  * 代償として挙げていた。保管庫を暗号化したいま、その代償は払う価値が無いので逆を取る。
  * 1回の送信の中での重複排除は、送る前に id を照会するので今も効く。
  *
- * 取得したものは `cacheDir/media/<id>` に置いて以後そこから読む。届いた暗号文は
+ * 取得したものは `filesDir/media/<id>` に置いて以後そこから読む。届いた暗号文は
  * ハッシュを取り、要求した id と合わなければ捨てる（id そのものが検査になるので、
  * サーバーが正しいものを返すことを信用しなくてよい）。復号でもう一度、区間ごとに、
  * サーバーが持っていない鍵で検査される。
@@ -47,10 +47,11 @@ class MediaRepository(
     private val store: MediaStoreClient? = null,
 ) {
 
-    // **cacheDir に置く。** 取り直せるものなので、端末の空きが逼迫したら
-    // OS が黙って回収してよい。設定アプリの「キャッシュを削除」で消せるのも正しい。
-    // MediaBudget を参照。
-    private val directory = File(context.cacheDir, DIR)
+    // ここを cacheDir へ移そうとして、実機で写真が出なくなった。原因を掴めて
+    // いないので戻す。**掴めていない変更を残さない。**
+    // 置き場所の話そのものは正しい（MediaBudget を参照）ので、原因が分かってから
+    // もう一度やる。
+    private val directory = File(context.filesDir, DIR)
 
     /** デコード済みの画像。同じ写真を通り過ぎるたびにデコードし直さないため。 */
     private val decoded = ConcurrentHashMap<String, ImageBitmap>()
@@ -106,14 +107,26 @@ class MediaRepository(
      * @return 新しく届いたら true。呼び出し側が描き直すため。
      */
     suspend fun fetch(id: MediaId, key: ByteArray? = null): Boolean {
+        val tag = id.value.take(8)
         if (cached(id) != null) return false
-        if (absent[id.value] == true) return false
+        if (absent[id.value] == true) {
+            // 「無い」と一度決めたものは二度と取りに行かない。プロセスが生きている
+            // 間だけの記憶なので、開き直せば消える。**それを言わないと、
+            // 「押しても何も起きない」の理由が誰にも分からない。**
+            android.util.Log.w(TAG, "$tag: 前に取れなかったので、もう試さない")
+            return false
+        }
 
         return if (key == null) fetchLegacy(id) else fetchStored(id, key)
     }
 
     private suspend fun fetchStored(id: MediaId, key: ByteArray): Boolean {
-        val client = store ?: return false
+        val client = store ?: run {
+            // Firebase の無いビルドではここに来る。**黙って false を返していたので、
+            // 「押しても何も起きない」としか見えなかった。**
+            android.util.Log.w(TAG, "${id.value.take(8)}: 保管庫の接続が無い")
+            return false
+        }
         val sealed = File(directory, id.value + SEALED_SUFFIX)
 
         val ok = withContext(Dispatchers.IO) {
@@ -122,7 +135,7 @@ class MediaRepository(
                 .onFailure {
                     // これが無いと「圏外」「消された」「ルールに拒否された」が、
                     // どこにも説明の無い1つの灰色い箱になる。
-                    android.util.Log.w("Rinowa/media", "download " + id.value.take(8) + " failed", it)
+                    android.util.Log.w(TAG, "download " + id.value.take(8) + " failed", it)
                 }
                 .isSuccess
         }
@@ -135,7 +148,7 @@ class MediaRepository(
         // id は暗号文のハッシュ。合わないバイト列は、サーバーが何と言おうと
         // 要求したファイルではない。
         if (hashOf(sealed) != id.value) {
-            android.util.Log.w("Rinowa/media", "hash mismatch for " + id.value.take(8))
+            android.util.Log.w(TAG, "hash mismatch for " + id.value.take(8))
             sealed.delete()
             absent[id.value] = true
             return false
@@ -145,13 +158,11 @@ class MediaRepository(
             runCatching {
                 MediaCipher.open(sealed, key).use { plain ->
                     fileFor(id).outputStream().use(plain::copyTo)
-                    // 貯まりっぱなしにしない。1枚増えたところで測る。
-                    MediaBudget.prune(directory, MediaBudget.bytesFor(context))
                 }
             }
                 // 開かない鍵は本物の失敗なので見えないといけない。メッセージと
                 // オブジェクトが食い違っているということで、再試行では直らない。
-                .onFailure { android.util.Log.w("Rinowa/media", "decrypt failed", it) }
+                .onFailure { android.util.Log.w(TAG, "decrypt failed", it) }
                 .isSuccess
         }
         sealed.delete()
@@ -171,10 +182,14 @@ class MediaRepository(
                 .get().await()
                 .getBlob(RinowaDb.Media.BYTES)?.toBytes()
         }
-            .onFailure { android.util.Log.w("Rinowa/media", "legacy fetch failed", it) }
+            .onFailure { android.util.Log.w(TAG, "legacy fetch failed", it) }
             .getOrNull()
 
         if (bytes == null || ContentHash.of(bytes).value != id.value) {
+            android.util.Log.w(
+                TAG,
+                "${id.value.take(8)}: 昔の置き場にも無いか、中身が合わない（bytes=${bytes?.size}）",
+            )
             absent[id.value] = true
             return false
         }
@@ -338,6 +353,7 @@ class MediaRepository(
     private fun fileFor(id: MediaId) = File(directory, id.value)
 
     internal companion object {
+        private const val TAG = "Rinowa/media"
         const val DIR = "media"
 
         /** 出入りする暗号文。置きっぱなしにはしない。 */
