@@ -105,7 +105,7 @@ struct ScreenshotStage: View {
             NavigationStack { ChatScreen(conversationId: firstConversation) }
 
         case "photo":
-            PhotoViewer(image: ScreenshotHarness.sampleImage) {}
+            PhotoViewer(images: [ScreenshotHarness.sampleImage]) {}
 
         case "call-active", "call-ringing", "call-ended":
             ZStack {
