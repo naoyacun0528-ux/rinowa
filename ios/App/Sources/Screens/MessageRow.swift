@@ -77,6 +77,17 @@ struct MessageRow: View {
 
     // ---------------------------------------------------------------- 吹き出し
 
+    /// **スタンプと写真と動画には吹き出しを付けない。**
+    ///
+    /// スタンプに枠を付けると「画像を送った」に見える。写真も同じで、
+    /// 写真そのものがメッセージであって、枠は場所を奪うだけ。
+    private var bare: Bool {
+        switch message.content {
+        case .sticker, .image, .video: return true
+        default: return false
+        }
+    }
+
     @ViewBuilder
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -85,13 +96,21 @@ struct MessageRow: View {
             }
             content
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 9)
-        .background(bubbleColor, in: RoundedRectangle(cornerRadius: RinowaDimens.bubbleRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: RinowaDimens.bubbleRadius, style: .continuous)
-                .strokeBorder(message.isMine ? .clear : colors.outlineSoft, lineWidth: 1)
-        )
+        .padding(.horizontal, bare ? 0 : 13)
+        .padding(.vertical, bare ? 0 : 9)
+        .background {
+            if !bare {
+                RoundedRectangle(cornerRadius: RinowaDimens.bubbleRadius, style: .continuous)
+                    .fill(bubbleColor)
+                    .overlay(
+                        RoundedRectangle(
+                            cornerRadius: RinowaDimens.bubbleRadius,
+                            style: .continuous
+                        )
+                        .strokeBorder(message.isMine ? .clear : colors.outlineSoft, lineWidth: 1)
+                    )
+            }
+        }
     }
 
     private var bubbleColor: Color {
