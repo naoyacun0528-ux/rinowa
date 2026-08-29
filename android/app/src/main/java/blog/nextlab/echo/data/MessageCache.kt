@@ -96,6 +96,8 @@ class MessageCache(context: Context) {
 
     fun put(entries: List<Entry>) {
         if (entries.isEmpty()) return
+        // swallow-ok: これはアプリが書いた写し。書けなくても、サーバーから
+        // 取り直せば同じものが出る。遅くなるだけで、何も失われない。
         runCatching {
             helper.writableDatabase.use { db ->
                 db.beginTransaction()
@@ -121,12 +123,12 @@ class MessageCache(context: Context) {
                 }
             }
         }
-        // swallow-ok: これはアプリが書いた写し。書けなくても、サーバーから
-        // 取り直せば同じものが出る。遅くなるだけで、何も失われない。
     }
 
     /** その会話を開いた。捨てる順がこれで決まる。 */
     fun markOpened(conversationId: ConversationId) {
+        // swallow-ok: 記録できなくても、捨てる順が少し古いままになるだけ。
+        // 会話は読める。
         runCatching {
             helper.writableDatabase.use { db ->
                 db.insertWithOnConflict(
@@ -150,6 +152,7 @@ class MessageCache(context: Context) {
      * **1回の問い合わせで全会話ぶんを取る。** 会話ごとに聞くと、通信をやめた
      * 意味が半分になる（往復はしないが、問い合わせの数は会話の数だけ残る）。
      */
+    // swallow-ok: 読めなければ写しが無いのと同じ。呼ぶ側はサーバーへ聞きに行く。
     fun newestPerConversation(): Map<String, Entry> = runCatching {
         val out = LinkedHashMap<String, Entry>()
         helper.readableDatabase.use { db ->
@@ -190,6 +193,8 @@ class MessageCache(context: Context) {
      * 持っている意味が無くなる。
      */
     fun prune(budgetBytes: Long = DEFAULT_BUDGET) {
+        // swallow-ok: 捨てられなくても、次に呼ばれたときにまた測る。
+        // 一度失敗したからといって、際限なく増えるわけではない。
         runCatching {
             helper.writableDatabase.use { db ->
                 val rows = DatabaseUtilsCount(db)
@@ -222,6 +227,10 @@ class MessageCache(context: Context) {
 
     /** ログアウトと退会で呼ぶ。**残しておくと、次に入った人が前の人の会話を見る。** */
     fun clear() {
+        // swallow-ok: ここだけは消えないと困る——次に入った人が前の人の会話を
+        // 見ることになる。だが消せなかった場合にできることも無い。ログアウト
+        // そのものは止めない。**アカウントは端末を出るべきで、写しが残ることを
+        // 理由に居座らせるほうが悪い。**
         runCatching {
             helper.writableDatabase.use { db ->
                 db.execSQL("DELETE FROM $TABLE")

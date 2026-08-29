@@ -43,6 +43,8 @@ object MediaBudget {
         }
     }
 
+    // swallow-ok: 空きが読めなくても、予算を決めるだけの話。真ん中を取る。
+    // ここで止めると、写真が1枚も出せなくなる。
     private fun freeBytes(context: Context): Long = runCatching {
         val stat = StatFs(context.filesDir.absolutePath)
         stat.availableBlocksLong * stat.blockSizeLong
