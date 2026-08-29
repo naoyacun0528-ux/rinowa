@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    端末を移すとき、何を持っていくか。
+
+    **メッセージの写しは持っていかない。**
+
+    あの中には封を開けた本文が入っている。Android の移行はいったんクラウドを
+    経由するので、載せれば本文が Google のサーバーへ行く。それは Rinowa が
+    「作った本人にも読めない」と言っていることと、正面からぶつかる。
+
+    マニフェストは android:allowBackup="false" なので、いまはそもそも何も
+    載らない。それでもここに書くのは、**設定は誰かがいつか変えるから。**
+    allowBackup を true にした人が、本文まで一緒に持っていくつもりだったとは
+    限らない。二重に止めておく。
+
+    会話は復元できないわけではない。バックアップの画面から、本人の暗証番号で
+    開くドライブの控えを使う（docs/SYNC_AND_BACKUP.md）。そちらは端末を出る
+    前に封をしてある。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="rinowa_messages.db" />
+        <exclude domain="database" path="rinowa_messages.db-journal" />
+        <exclude domain="database" path="rinowa_messages.db-wal" />
+        <exclude domain="database" path="rinowa_messages.db-shm" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="rinowa_messages.db" />
+        <exclude domain="database" path="rinowa_messages.db-journal" />
+        <exclude domain="database" path="rinowa_messages.db-wal" />
+        <exclude domain="database" path="rinowa_messages.db-shm" />
+    </device-transfer>
+</data-extraction-rules>

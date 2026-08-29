@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
  * 代償として挙げていた。保管庫を暗号化したいま、その代償は払う価値が無いので逆を取る。
  * 1回の送信の中での重複排除は、送る前に id を照会するので今も効く。
  *
- * 取得したものは `filesDir/media/<id>` に置いて以後そこから読む。届いた暗号文は
+ * 取得したものは `cacheDir/media/<id>` に置いて以後そこから読む。届いた暗号文は
  * ハッシュを取り、要求した id と合わなければ捨てる（id そのものが検査になるので、
  * サーバーが正しいものを返すことを信用しなくてよい）。復号でもう一度、区間ごとに、
  * サーバーが持っていない鍵で検査される。
@@ -47,7 +47,10 @@ class MediaRepository(
     private val store: MediaStoreClient? = null,
 ) {
 
-    private val directory = File(context.filesDir, DIR)
+    // **cacheDir に置く。** 取り直せるものなので、端末の空きが逼迫したら
+    // OS が黙って回収してよい。設定アプリの「キャッシュを削除」で消せるのも正しい。
+    // MediaBudget を参照。
+    private val directory = File(context.cacheDir, DIR)
 
     /** デコード済みの画像。同じ写真を通り過ぎるたびにデコードし直さないため。 */
     private val decoded = ConcurrentHashMap<String, ImageBitmap>()
@@ -82,7 +85,18 @@ class MediaRepository(
     fun isKnownMissing(id: MediaId): Boolean = absent[id.value] == true
 
     /** 端末上の平文ファイル。ギャラリー保存や再生に渡す。 */
-    fun fileOf(id: MediaId): File? = fileFor(id).takeIf(File::exists)
+    fun fileOf(id: MediaId): File? = fileFor(id).takeIf(File::exists)?.also(::touch)
+
+    /**
+     * 最後に開いた時刻を進める。
+     *
+     * 捨てる順がこれで決まる。**届いた順ではない。** 古い写真でも、さっき
+     * 見返したものはまた見る。届いた順で捨てると、遡って見ていた会話の写真から
+     * 消えていく。
+     */
+    private fun touch(file: File) {
+        runCatching { file.setLastModified(System.currentTimeMillis()) }
+    }
 
     /**
      * 端末に無い写真を取りに行く。
@@ -131,6 +145,8 @@ class MediaRepository(
             runCatching {
                 MediaCipher.open(sealed, key).use { plain ->
                     fileFor(id).outputStream().use(plain::copyTo)
+                    // 貯まりっぱなしにしない。1枚増えたところで測る。
+                    MediaBudget.prune(directory, MediaBudget.bytesFor(context))
                 }
             }
                 // 開かない鍵は本物の失敗なので見えないといけない。メッセージと
@@ -321,7 +337,7 @@ class MediaRepository(
 
     private fun fileFor(id: MediaId) = File(directory, id.value)
 
-    private companion object {
+    internal companion object {
         const val DIR = "media"
 
         /** 出入りする暗号文。置きっぱなしにはしない。 */

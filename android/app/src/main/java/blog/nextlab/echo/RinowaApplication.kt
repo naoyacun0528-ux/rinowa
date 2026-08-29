@@ -26,6 +26,7 @@ import blog.nextlab.echo.crypto.ToDeviceLedger
 import blog.nextlab.echo.data.ConversationRepository
 import blog.nextlab.echo.data.FeedbackRepository
 import blog.nextlab.echo.data.LocalStickerStore
+import blog.nextlab.echo.data.MediaBudget
 import blog.nextlab.echo.data.MediaRepository
 import blog.nextlab.echo.data.MessageRepository
 import blog.nextlab.echo.data.ProfilePhotos
@@ -156,6 +157,14 @@ class RinowaApplication : Application() {
         CoroutineScope(Dispatchers.IO).launch {
             stickers.installBuiltIns()
             stickers.rescan()
+
+            // 前の版が filesDir に貯めた写真を捨てる。あそこは消せない側で、
+            // 上限も無かった。次に開いたときに落とし直す。
+            MediaBudget.forgetOldLocation(this@RinowaApplication)
+            MediaBudget.prune(
+                java.io.File(cacheDir, MediaRepository.DIR),
+                MediaBudget.bytesFor(this@RinowaApplication),
+            )
         }
 
         if (firestore != null) {
