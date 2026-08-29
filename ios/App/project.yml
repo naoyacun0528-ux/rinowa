@@ -32,7 +32,10 @@ targets:
       - path: Sources
       # スタンプの絵。Android の assets/stickers と同じ8枚。
       # **メッセージが運ぶのは id だけ**で、絵は端末が持つ。
-      - path: Sources/Resources
+      #
+      # Sources の**外**に置く。中に入れると生成された Info.plist から
+      # CFBundleIdentifier が落ち、Simulator が Missing bundle ID で弾く。
+      - path: Resources
         type: folder
     dependencies:
       - package: RinowaCore
