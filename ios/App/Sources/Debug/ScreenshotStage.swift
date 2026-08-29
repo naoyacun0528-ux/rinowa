@@ -69,6 +69,13 @@ struct ScreenshotStage: View {
         case "list":
             NavigationStack { ChatListScreen() }
 
+        case "photo-crop":
+            PhotoCropScreen(source: ScreenshotHarness.sampleImage, onBack: {})
+
+        case "stickers":
+            // 引き出しを開いた会話。押すと即送信されるので、開いた形だけ撮る。
+            NavigationStack { ChatScreen(conversationId: firstConversation, stickersOpen: true) }
+
         case "feedback":
             FeedbackScreen(onBack: {})
 

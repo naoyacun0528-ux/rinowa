@@ -10,6 +10,8 @@ import RinowaCore
 struct ChatScreen: View {
 
     let conversationId: String
+    /// 既定は閉じている。開いた状態を撮るときだけ true。
+    var stickersOpen: Bool = false
 
     @EnvironmentObject private var store: ConversationStore
     @Environment(\.rinowaColors) private var colors
@@ -17,7 +19,15 @@ struct ChatScreen: View {
 
     @State private var draft: String = ""
     @State private var replyingTo: ChatMessage?
-    @State private var viewing: IdentifiedImage?
+    @State private var viewing: OpenedPhoto?
+
+    /// 会話の中の写真、届いている順。
+    private var photos: [UIImage?] {
+        conversation?.messages.compactMap { message in
+            if case .image = message.content { return message.media?.thumbnail }
+            return nil
+        } ?? []
+    }
     @StateObject private var call = CallController()
 
     private var conversation: Conversation? { store.conversation(id: conversationId) }
@@ -31,7 +41,14 @@ struct ChatScreen: View {
                 Composer(
                     draft: $draft,
                     replyingTo: $replyingTo,
-                    onSend: send
+                    onSend: send,
+                    stickersOpen: stickersOpen,
+                    onSticker: { id in
+                        // 押したら即送信。選択にすると、1回の表現が2タップのフォームになる。
+                        haptics.fire(.send)
+                        store.sendSticker(id, to: conversationId)
+                        replyingTo = nil
+                    }
                 )
             }
 
@@ -43,8 +60,9 @@ struct ChatScreen: View {
             }
         }
         .animation(RinowaMotion.settle, value: call.state)
-        .fullScreenCover(item: $viewing) { image in
-            PhotoViewer(image: image.value) { viewing = nil }
+        .fullScreenCover(item: $viewing) { opened in
+            // その会話の写真を全部渡す。押した1枚から始めて、横へめくれる。
+            PhotoViewer(images: photos, startAt: opened.index) { viewing = nil }
         }
         .navigationTitle(conversation?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
@@ -92,7 +110,10 @@ struct ChatScreen: View {
                                 onReact: { index in
                                     store.toggleReaction(index, on: message.id, in: conversationId)
                                 },
-                                onOpenPhoto: { viewing = IdentifiedImage(value: $0) }
+                                onOpenPhoto: { image in
+                                    let at = photos.firstIndex { $0 === image } ?? 0
+                                    viewing = OpenedPhoto(index: at)
+                                }
                             )
                             .id(message.id)
                         }

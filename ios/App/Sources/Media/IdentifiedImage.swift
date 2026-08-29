@@ -1,12 +1,10 @@
-import SwiftUI
-import UIKit
+import Foundation
 
 /// `fullScreenCover(item:)` に渡すための包み。
 ///
-/// UIImage は `Identifiable` ではないので、そのままでは渡せない。
-/// 中身を differentiate する必要は無い——**開いているのは常に1枚**なので、
-/// id は開くたびに新しくてよい。
-struct IdentifiedImage: Identifiable {
+/// 開くときに要るのは「どれを押したか」だけ。画像そのものは会話が持っていて、
+/// **横へめくるには全部が要る**ので、ここでは位置だけを運ぶ。
+struct OpenedPhoto: Identifiable {
     let id = UUID()
-    let value: UIImage?
+    let index: Int
 }

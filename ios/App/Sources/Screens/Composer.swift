@@ -12,10 +12,30 @@ struct Composer: View {
     @Binding var draft: String
     @Binding var replyingTo: ChatMessage?
     let onSend: () -> Void
+    var stickersOpen: Bool = false
+    var onSticker: (String) -> Void = { _ in }
 
     @Environment(\.rinowaColors) private var colors
     @Environment(\.haptics) private var haptics
     @FocusState private var focused: Bool
+
+    @State private var drawerOpen: Bool
+
+    init(
+        draft: Binding<String>,
+        replyingTo: Binding<ChatMessage?>,
+        onSend: @escaping () -> Void,
+        stickersOpen: Bool = false,
+        onSticker: @escaping (String) -> Void = { _ in }
+    ) {
+        _draft = draft
+        _replyingTo = replyingTo
+        self.onSend = onSend
+        self.stickersOpen = stickersOpen
+        self.onSticker = onSticker
+        _drawerOpen = State(initialValue: stickersOpen)
+    }
+
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -50,6 +70,14 @@ struct Composer: View {
             }
             .padding(.horizontal, RinowaDimens.gap)
             .padding(.vertical, RinowaDimens.gapSmall)
+
+            if drawerOpen {
+                StickerPanel { id in
+                    onSticker(id)
+                    withAnimation(RinowaMotion.settle) { drawerOpen = false }
+                }
+                .transition(.move(edge: .bottom))
+            }
         }
         .background(.regularMaterial)
         .overlay(alignment: .top) {
@@ -89,10 +117,12 @@ struct Composer: View {
     private var attachButton: some View {
         Button {
             haptics.fire(.selection)
+            focused = false
+            withAnimation(RinowaMotion.settle) { drawerOpen.toggle() }
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(colors.textSecondary)
+            // 開いているあいだは色が変わる。何が出ているかを、
+            // 引き出しを見なくてもボタン側で分かるように。
+            PlusMark(open: drawerOpen, tint: drawerOpen ? colors.accent : colors.textSecondary)
                 .frame(width: RinowaDimens.touchTarget, height: RinowaDimens.touchTarget)
         }
         .buttonStyle(.plain)

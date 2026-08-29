@@ -111,7 +111,18 @@ final class ConversationStore: ObservableObject {
         conversations.first { $0.id == id }
     }
 
+    /// スタンプを送る。
+    ///
+    /// **運ぶのは id だけ。** 絵は両方の端末が持っている。
+    func sendSticker(_ id: String, to conversationId: String) {
+        send(content: .sticker(id), to: conversationId)
+    }
+
     func send(_ text: String, to conversationId: String) {
+        send(content: .text(text), to: conversationId)
+    }
+
+    private func send(content: ChatMessage.Content, to conversationId: String) {
         guard let index = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
         let message = ChatMessage(
             id: UUID().uuidString,
@@ -119,7 +130,7 @@ final class ConversationStore: ObservableObject {
             senderName: "自分",
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
             status: .sending,
-            content: .text(text),
+            content: content,
             reactions: [],
             replyTo: nil,
             isMine: true

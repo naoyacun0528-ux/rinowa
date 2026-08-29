@@ -9,7 +9,10 @@ import UIKit
 /// 放置されると、次に開いたときに何が映っているか分からない。
 struct PhotoViewer: View {
 
-    let image: UIImage?
+    /// その会話の写真、全部。**1枚だけ渡さない。**
+    /// 開いたあとに横へめくれることが、会話の中の写真の見え方だから。
+    var images: [UIImage?]
+    var startAt: Int = 0
     let onClose: () -> Void
 
     @Environment(\.rinowaColors) private var colors
@@ -21,6 +24,7 @@ struct PhotoViewer: View {
     @State private var lastOffset: CGSize = .zero
     /// 下へ引いて閉じる量。写真を掴んで下ろす感じにする。
     @State private var dismissDrag: CGFloat = 0
+    @State private var page: Int = 0
 
     private var zoomed: Bool { scale > 1.01 }
 
@@ -31,19 +35,32 @@ struct PhotoViewer: View {
                 .opacity(1 - min(dismissDrag / 300, 0.65))
                 .ignoresSafeArea()
 
-            content
-                .scaleEffect(scale)
-                .offset(x: offset.width, y: offset.height + dismissDrag)
-                .gesture(magnify)
-                .simultaneousGesture(pan)
+            TabView(selection: $page) {
+                ForEach(Array(images.enumerated()), id: \.offset) { index, image in
+                    content(image)
+                        .scaleEffect(scale)
+                        .offset(x: offset.width, y: offset.height + dismissDrag)
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: images.count > 1 ? .automatic : .never))
+            // 拡大中の横スワイプは写真の移動。ページ送りとは両立しないので止める。
+            .allowsHitTesting(true)
+            .simultaneousGesture(magnify)
+            .simultaneousGesture(pan)
+            .onChange(of: page) { _ in
+                // めくったら倍率を戻す。前の写真の拡大を次に持ち越さない。
+                scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero
+            }
 
             controls
         }
         .statusBarHidden()
+        .onAppear { page = min(max(startAt, 0), max(images.count - 1, 0)) }
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(_ image: UIImage?) -> some View {
         if let image {
             Image(uiImage: image)
                 .resizable()

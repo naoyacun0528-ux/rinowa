@@ -113,9 +113,7 @@ struct MessageRow: View {
 
         case .sticker(let id):
             // 画像は端末が持つ。線の上を通るのは id だけ。
-            Text(stickerLabel(id))
-                .font(.system(size: 40))
-                .frame(width: 96, height: 96)
+            StickerImage(id: id, size: stickerSize)
 
         case .image(let width, let height):
             let aspect = CGFloat(width) / CGFloat(max(height, 1))
@@ -167,20 +165,6 @@ struct MessageRow: View {
                 .rinowaType(RinowaType.messageBody)
                 .italic()
                 .foregroundStyle(message.isMine ? colors.bubbleOutgoingMeta : colors.textTertiary)
-        }
-    }
-
-    private func stickerLabel(_ id: String) -> String {
-        // 同梱セットの見出しを絵で代用する。画像は後で差し替える。
-        switch id {
-        case "st_iine": return "👍"
-        case "st_arigato": return "🙏"
-        case "st_ok": return "🙆"
-        case "st_ukeru": return "😂"
-        case "st_gomen": return "🙇"
-        case "st_tasukaru": return "🤝"
-        case "st_otsukare": return "🍵"
-        default: return "⏳"
         }
     }
 
@@ -356,6 +340,10 @@ private struct ReactionRow: View {
         }
     }
 }
+
+/// スタンプの大きさ。Android と同じ 148。**吹き出しより大きい。**
+/// スタンプは文章の飾りではなく、それ自体が1回の発言なので。
+private let stickerSize: CGFloat = 148
 
 struct ReactionPicker: View {
     let onPick: (Int) -> Void
