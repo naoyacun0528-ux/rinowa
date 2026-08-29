@@ -29,25 +29,24 @@ struct ChatListScreen: View {
         ZStack {
             colors.background.ignoresSafeArea()
 
+            // **1枚ずつ浮いたカード。区切り線で仕切った並びではない。**
+            // Android と同じで、余白も角丸も影も同じ値を使う。
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: RinowaDimens.glassCardGap) {
                     ForEach(visible) { conversation in
                         NavigationLink(value: conversation.id) {
-                            ChatListRow(conversation: conversation)
+                            GlassSurface {
+                                ChatListRow(conversation: conversation)
+                            }
                         }
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded {
                             haptics.fire(.navigation)
                         })
-
-                        if conversation.id != visible.last?.id {
-                            Divider()
-                                .overlay(colors.outlineSoft)
-                                .padding(.leading, RinowaDimens.screenPadding
-                                         + RinowaDimens.avatarSize + RinowaDimens.gap)
-                        }
+                        .padding(.horizontal, RinowaDimens.glassCardMargin)
                     }
                 }
+                .padding(.vertical, RinowaDimens.glassCardGap)
             }
             .scrollDismissesKeyboard(.immediately)
 
@@ -102,20 +101,13 @@ private struct ComposeMenu: View {
                     .padding(.bottom, RinowaDimens.gapTiny)
             }
 
-            Button {
+            GlassSurface(shape: Circle(), tone: .control) {
                 haptics.fire(.softConfirm)
-                withAnimation(RinowaMotion.pop) { open.toggle() }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(colors.textPrimary)
-                    .rotationEffect(.degrees(open ? 45 : 0))
+                open.toggle()
+            } content: {
+                PlusMark(open: open, tint: colors.accent)
                     .frame(width: 56, height: 56)
-                    .background(Circle().fill(.regularMaterial))
-                    .overlay(Circle().strokeBorder(colors.glassEdgeLow, lineWidth: 1))
-                    .shadow(color: colors.glassShadow.opacity(0.18), radius: 10, y: 4)
             }
-            .buttonStyle(.plain)
         }
         .animation(RinowaMotion.pop, value: open)
     }
@@ -130,11 +122,14 @@ private struct ComposeMenu: View {
                 .foregroundStyle(colors.textPrimary)
                 .padding(.horizontal, RinowaDimens.gap)
                 .frame(height: RinowaDimens.touchTarget)
-                .background(Capsule().fill(.regularMaterial))
-                .overlay(Capsule().strokeBorder(colors.glassEdgeLow, lineWidth: 1))
+                .glassFace(
+                    shape: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                    elevation: 3
+                )
         }
         .buttonStyle(.plain)
-        .transition(.move(edge: .trailing).combined(with: .opacity))
+        // 上へ伸びて出る。横から滑らせると、別の場所から来たものに見える。
+        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottom)))
     }
 }
 
