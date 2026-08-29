@@ -80,7 +80,7 @@ object VideoTranscoder {
             .build()
 
         val progress = androidx.media3.transformer.ProgressHolder()
-        val ticker = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
+        val ticker = kotlinx.coroutines.CoroutineScope(Dispatchers.Main)
             .launch {
                 while (isActive) {
                     if (transformer.getProgress(progress) ==

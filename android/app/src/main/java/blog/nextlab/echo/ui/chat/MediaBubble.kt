@@ -140,7 +140,7 @@ internal fun VideoMessage(
             val cx = size.width / 2f + r * 0.15f
             val cy = size.height / 2f
             drawPath(
-                path = androidx.compose.ui.graphics.Path().apply {
+                path = Path().apply {
                     moveTo(cx - r * 0.7f, cy - r)
                     lineTo(cx + r, cy)
                     lineTo(cx - r * 0.7f, cy + r)

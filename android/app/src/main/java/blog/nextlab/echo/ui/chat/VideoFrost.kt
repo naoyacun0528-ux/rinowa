@@ -245,7 +245,7 @@ fun FrostedOver(
                         ) {
                             drawImage(
                                 image = captured,
-                                dstSize = androidx.compose.ui.unit.IntSize(
+                                dstSize = IntSize(
                                     picture.width.toInt(),
                                     picture.height.toInt(),
                                 ),

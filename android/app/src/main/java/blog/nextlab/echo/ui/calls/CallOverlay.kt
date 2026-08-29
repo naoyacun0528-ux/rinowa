@@ -98,7 +98,7 @@ fun CallOverlay(
                     onAccept = onRequestMicrophone,
                     onDecline = { controller.decline(incoming) },
                 )
-            } else if (controller.active?.kind == blog.nextlab.echo.calls.CallKind.Video) {
+            } else if (controller.active?.kind == CallKind.Video) {
                 VideoCall(controller = controller, peerName = peerName)
             } else {
                 OngoingCall(controller = controller, peerName = peerName)

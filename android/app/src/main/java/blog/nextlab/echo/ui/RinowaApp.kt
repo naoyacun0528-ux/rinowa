@@ -155,7 +155,7 @@ fun RinowaApp(
         // コントローラは全画面より上でここに持つ。会話を離れても通話が続く必要があるため。
         // スコープを Application から取るのも同じ理由の一段強い版で、コンポジションの
         // スコープは Activity の作り直しで死ぬ。
-        val callContext = androidx.compose.ui.platform.LocalContext.current
+        val callContext = LocalContext.current
         val callScope = appScope
         val authState = services?.auth?.state?.collectAsStateWithLifecycle()?.value
         val signedIn = authState as? AuthState.SignedIn
@@ -166,7 +166,7 @@ fun RinowaApp(
         // 最初のメッセージを暗号化するときまで遅らせていたら、端末は**自分から
         // 話しかけるまで届かない**状態になっていた。相手は端末を問い合わせて0件を見て、
         // 誰にも部屋の鍵を配らない。エラーはどこにも出ず、メッセージだけが開かない。
-        val application = androidx.compose.ui.platform.LocalContext.current.applicationContext
+        val application = LocalContext.current.applicationContext
         LaunchedEffect(callerId) {
             val uid = callerId ?: return@LaunchedEffect
             (application as? blog.nextlab.echo.RinowaApplication)
@@ -471,7 +471,7 @@ private fun MainNavigation(
             }
 
             is Screen.Safety -> {
-                val context = androidx.compose.ui.platform.LocalContext.current
+                val context = LocalContext.current
                 val conversation = current.conversation
                 // 1対1のときだけ相手が決まる。グループは全員ぶんの端末が並ぶので、
                 // 読み合わせの画面としては別の作りが要る。いまは出さない。
@@ -637,11 +637,11 @@ private fun BackupRoute(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var state by remember { mutableStateOf(BackupUiState(busy = true)) }
 
     val consent = rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult(),
+        ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
         state = if (result.resultCode == android.app.Activity.RESULT_OK) {
             // **繋がった。もう一度押させない。** 許可は取れているので、

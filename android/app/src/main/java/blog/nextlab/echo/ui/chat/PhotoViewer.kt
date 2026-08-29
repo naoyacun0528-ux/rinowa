@@ -104,7 +104,7 @@ fun PhotoViewer(
 ) {
     if (photos.isEmpty()) return
 
-    val pager = androidx.compose.foundation.pager.rememberPagerState(
+    val pager = rememberPagerState(
         initialPage = startIndex.coerceIn(0, photos.lastIndex),
     ) { photos.size }
 
@@ -181,7 +181,7 @@ fun PhotoViewer(
                 if (scale > 1.02f) return@pointerInput
                 detectVerticalDragGestures(
                     onDragEnd = {
-                        if (kotlin.math.abs(dismissY.value) > DISMISS_AT) {
+                        if (abs(dismissY.value) > DISMISS_AT) {
                             haptics.perform(HapticToken.Navigation)
                             // その場で消すと動きが途切れる。指の向きへ送り出してから閉じる。
                             dragScope.launch {
@@ -218,7 +218,7 @@ fun PhotoViewer(
                     dragScope.launch { dismissY.snapTo(dismissY.value + amount) }
 
                     // 戻るジェスチャーと同じ作り。最初は無音、そこから強くなる。
-                    val travelled = (kotlin.math.abs(dismissY.value) / DISMISS_AT)
+                    val travelled = (abs(dismissY.value) / DISMISS_AT)
                         .coerceIn(0f, 1f)
                     if (travelled >= 0.34f && travelled - lastRung >= 0.12f) {
                         lastRung = travelled
@@ -231,8 +231,8 @@ fun PhotoViewer(
                 exitTo = size.height * 1.05f
 
                 // 指を下ろしている間は閾値までの割合、離れたあとは画面外までの割合で測る。
-                val travelled = (kotlin.math.abs(dismissY.value) / DISMISS_AT).coerceIn(0f, 1f)
-                val away = (kotlin.math.abs(dismissY.value) / size.height.coerceAtLeast(1f))
+                val travelled = (abs(dismissY.value) / DISMISS_AT).coerceIn(0f, 1f)
+                val away = (abs(dismissY.value) / size.height.coerceAtLeast(1f))
                     .coerceIn(0f, 1f)
 
                 translationY = dismissY.value
@@ -241,7 +241,7 @@ fun PhotoViewer(
                 alpha = 1f - (away * 1.8f).coerceAtMost(1f)
             },
     ) {
-        androidx.compose.foundation.pager.HorizontalPager(
+        HorizontalPager(
             state = pager,
             // 拡大中の横スワイプは写真の移動。ページ送りとは両立しないので止める。
             userScrollEnabled = scale <= 1.02f,

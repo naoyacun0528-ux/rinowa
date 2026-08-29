@@ -209,7 +209,7 @@ class RinowaApplication : Application() {
                             // 残る必要がある（持っている意味がそこにある）。
                             private val prefs = getSharedPreferences(
                                 "rinowa.todevice",
-                                android.content.Context.MODE_PRIVATE,
+                                MODE_PRIVATE,
                             )
 
                             override fun read(): Set<String> =
