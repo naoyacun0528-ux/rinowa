@@ -97,6 +97,10 @@ final class ConversationStore: ObservableObject {
     /// 自分の招待コード。**これを渡した相手だけが自分を見つけられる。**
     /// 本物はサーバーが持つ。ここは画面を組み立てるための見本。
     let myInviteCode: String? = "K7QM3XPD"
+
+    /// 自分の名前とアドレス。本物は Firebase が持つ。ここは画面のための見本。
+    let myName: String? = "みなと"
+    let myEmail: String? = "minato@example.com"
     @Published var signedIn: Bool = true
 
     init(conversations: [Conversation] = SampleData.conversations) {

@@ -69,6 +69,21 @@ struct ScreenshotStage: View {
         case "list":
             NavigationStack { ChatListScreen() }
 
+        case "feedback":
+            FeedbackScreen(onBack: {})
+
+        case "account":
+            AccountScreen(onBack: {})
+
+        case "verify-email":
+            VerifyEmailScreen(onBack: {})
+
+        case "password-reset":
+            PasswordResetScreen(onBack: {})
+
+        case "delete-account":
+            DeleteAccountScreen(onBack: {})
+
         case "new-conversation":
             NewConversationScreen(onBack: {})
 
