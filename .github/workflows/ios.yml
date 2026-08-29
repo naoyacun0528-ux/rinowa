@@ -128,7 +128,7 @@ jobs:
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiBars 3 --dataNetwork wifi --operatorName ""
 
           mkdir -p screenshots
-          for SCREEN in list list-compose chat photo call-active call-ringing call-ended safety profile privacy backup signin; do
+          for SCREEN in list list-compose new-conversation new-group chat photo call-active call-ringing call-ended safety profile privacy backup signin; do
             xcrun simctl terminate "$UDID" blog.nextlab.echo 2>/dev/null || true
             xcrun simctl launch "$UDID" blog.nextlab.echo --rinowa-screen "$SCREEN"
             # 起動して落ち着くまで待つ。アニメーションの途中で撮ると毎回違う絵になる。
@@ -141,7 +141,7 @@ jobs:
           # 撮り漏らしはここで落とす。**後から artifact を開いて気づくのでは遅い。**
           COUNT=$(ls screenshots/*.png | wc -l | tr -d ' ')
           echo "撮れた枚数: $COUNT"
-          if [ "$COUNT" -lt 12 ]; then echo "撮れていない画面がある"; exit 1; fi
+          if [ "$COUNT" -lt 14 ]; then echo "撮れていない画面がある"; exit 1; fi
           ls -la screenshots
 
       - name: 画面を持ち帰る

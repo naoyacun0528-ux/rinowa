@@ -69,6 +69,12 @@ struct ScreenshotStage: View {
         case "list":
             NavigationStack { ChatListScreen() }
 
+        case "new-conversation":
+            NewConversationScreen(onBack: {})
+
+        case "new-group":
+            NewGroupScreen(onBack: {})
+
         case "list-compose":
             // ＋ を押した状態。押した先の画面はまだ無いので、ここまで。
             NavigationStack { ChatListScreen(composeOpen: true) }

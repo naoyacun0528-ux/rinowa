@@ -58,6 +58,9 @@ enum RinowaDimens {
     static let rowPadding: CGFloat = 14
     static let bubbleRadius: CGFloat = 18
     static let cardRadius: CGFloat = 14
+
+    /// 入力欄の下限。Android の RinowaDimens と同じ値。
+    static let composerMinHeight: CGFloat = 46
     static let barHeight: CGFloat = 52
 
     static let gapTiny: CGFloat = 4

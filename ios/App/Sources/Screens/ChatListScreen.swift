@@ -15,6 +15,13 @@ struct ChatListScreen: View {
     @Environment(\.haptics) private var haptics
 
     @State private var composeOpen: Bool
+    @State private var going: Destination?
+
+    /// ＋の先。会話とは別の行き先なので、会話 id の遷移とは分けている。
+    enum Destination: String, Identifiable {
+        case newConversation, newGroup
+        var id: String { rawValue }
+    }
 
     /// 既定は閉じている。開いた状態を撮るときだけ true を渡す。
     init(composeOpen: Bool = false) {
@@ -54,9 +61,19 @@ struct ChatListScreen: View {
                 emptyState
             }
 
-            ComposeMenu(open: $composeOpen)
+            ComposeMenu(
+                open: $composeOpen,
+                onNewConversation: { going = .newConversation },
+                onNewGroup: { going = .newGroup }
+            )
                 .padding(RinowaDimens.gapLarge)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        }
+        .fullScreenCover(item: $going) { destination in
+            switch destination {
+            case .newConversation: NewConversationScreen(onBack: { going = nil })
+            case .newGroup:        NewGroupScreen(onBack: { going = nil })
+            }
         }
         .navigationTitle("Rinowa")
         .navigationBarTitleDisplayMode(.large)
@@ -90,14 +107,16 @@ struct ChatListScreen: View {
 private struct ComposeMenu: View {
 
     @Binding var open: Bool
+    var onNewConversation: () -> Void
+    var onNewGroup: () -> Void
     @Environment(\.rinowaColors) private var colors
     @Environment(\.haptics) private var haptics
 
     var body: some View {
         VStack(alignment: .trailing, spacing: RinowaDimens.gapSmall) {
             if open {
-                item("友達を追加")
-                item("グループを作る")
+                item("友達を追加") { onNewConversation() }
+                item("グループを作る") { onNewGroup() }
                     .padding(.bottom, RinowaDimens.gapTiny)
             }
 
@@ -112,10 +131,11 @@ private struct ComposeMenu: View {
         .animation(RinowaMotion.pop, value: open)
     }
 
-    private func item(_ label: String) -> some View {
+    private func item(_ label: String, _ go: @escaping () -> Void) -> some View {
         Button {
             haptics.fire(.navigation)
             withAnimation(RinowaMotion.settle) { open = false }
+            go()
         } label: {
             Text(label)
                 .rinowaType(RinowaType.label)

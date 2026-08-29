@@ -93,6 +93,10 @@ struct Conversation: Identifiable, Equatable {
 @MainActor
 final class ConversationStore: ObservableObject {
     @Published private(set) var conversations: [Conversation]
+
+    /// 自分の招待コード。**これを渡した相手だけが自分を見つけられる。**
+    /// 本物はサーバーが持つ。ここは画面を組み立てるための見本。
+    let myInviteCode: String? = "K7QM3XPD"
     @Published var signedIn: Bool = true
 
     init(conversations: [Conversation] = SampleData.conversations) {
@@ -183,3 +187,23 @@ extension ConversationStore {
     }
 }
 #endif
+
+
+/// 話したことがある人。
+///
+/// **友達一覧という別の入れ物は無い。** 話したことがあることが知っていること、
+/// という Android 側の決めごとをそのまま持ってくる。
+struct Contact: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let seed: Int
+}
+
+extension ConversationStore {
+    /// グループに入れられる相手。1対1で話したことのある人だけ。
+    var contacts: [Contact] {
+        conversations
+            .filter { !$0.isGroup }
+            .map { Contact(id: $0.id, displayName: $0.title, seed: $0.seed) }
+    }
+}
