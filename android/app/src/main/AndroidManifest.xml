@@ -36,8 +36,17 @@
     <!-- Android 12 より前は旧 Bluetooth と、避けようがなく位置情報が要った。 -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <!--
+      FINE を求めるなら COARSE も並べて宣言する。Android 12 から、利用者は
+      「おおよその位置でよい」を選べるようになった。**FINE だけを宣言していると
+      その選択肢が出ず、断るしか無くなる。** 断られれば Wi-Fi の走査ごと落ちる。
+      どちらも API 33 以降は要らないので maxSdkVersion を揃える。
+    -->
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
         android:maxSdkVersion="32" />
 
     <!--

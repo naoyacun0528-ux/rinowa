@@ -87,6 +87,20 @@ class IncomingCallService : Service() {
                 android.graphics.drawable.Icon.createWithAdaptiveBitmap(face),
                 face,
             )
+            // 通知が許可されていなければ、写真を付け直しても出ない。
+            // 出ない理由は canPost がログに残す。
+            if (IncomingCallNotifier.denied(this@IncomingCallService)) return@launch
+            // 同じ確認をここにも書く。静的解析は関数をまたいでガードを追えないので、
+            // notify を書いた場所そのものに無いと「無防備な呼び出し」に見える。
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    this@IncomingCallService,
+                    android.Manifest.permission.POST_NOTIFICATIONS,
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return@launch
+            }
+
             runCatching {
                 androidx.core.app.NotificationManagerCompat.from(this@IncomingCallService)
                     .notify(IncomingCallNotifier.NOTIFICATION_ID, withFace)

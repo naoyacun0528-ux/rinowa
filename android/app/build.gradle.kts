@@ -39,7 +39,16 @@ android {
 
     defaultConfig {
         applicationId = "blog.nextlab.echo"
-        minSdk = 24
+        // Android 8.0 (2017年8月)。24 から上げた。
+        //
+        // 24 のままだと、着信通知のチャンネルを作る処理（NotificationChannel は
+        // API 26 以上）がバージョンの確認なしで呼ばれていて、**Android 7 の端末では
+        // 着信が来た瞬間に落ちる**。同種のものが27箇所あった。
+        //
+        // 全部に if (SDK_INT >= O) を書く手もあるが、それは「動かす当てのない端末
+        // 向けの分岐」を27個抱えるということ。切ったのは2016年8月以前の端末で、
+        // 世界のシェアで2%程度。
+        minSdk = 26
         targetSdk = 37
         // Versioning: fixes and small additions bump the patch (0.1.0 -> 0.1.1); a
         // substantial new feature bumps the minor (0.1.x -> 0.2.0).

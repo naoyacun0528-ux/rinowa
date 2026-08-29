@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      ノッチの下まで描く指定は API 27 から。**minSdk は 26 なので、ここに分ける。**
+      values/ に置いたままだと、26 の端末では存在しない属性を読むことになる。
+
+      分けても 26 の端末が困ることはない。ノッチのある端末が 27 より前に
+      存在しないので、指定が無くても結果は同じになる。
+    -->
+    <style name="Theme.Rinowa.Starting" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/rinowa_window_background</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

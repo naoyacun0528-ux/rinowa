@@ -1,6 +1,6 @@
 package blog.nextlab.echo.calls
 
-import blog.nextlab.echo.bestEffort
+import android.Manifest
 import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -9,10 +9,13 @@ import android.app.PendingIntent
 import android.app.Person
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import blog.nextlab.echo.R
+import blog.nextlab.echo.bestEffort
 
 /**
  * 端末を、電話らしく鳴らす。
@@ -44,6 +47,8 @@ object IncomingCallNotifier {
     const val EXTRA_CONVERSATION_ID = "conversationId"
     const val EXTRA_CALLER_NAME = "callerName"
     const val EXTRA_KIND_LABEL = "kindLabel"
+
+    private const val TAG = "Rinowa/calls"
 
     /**
      * 着信音のチャンネル。
@@ -151,9 +156,40 @@ object IncomingCallNotifier {
     fun showWithoutService(context: Context, notification: Notification) {
         // サービスを断られたときは、これ自体が着信音になる。失敗すると端末は
         // まったく鳴らないので、黙って終わってはいけない。
+        if (denied(context)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         bestEffort("post the ring") {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         }
+    }
+
+    /**
+     * 通知が断られているか。
+     *
+     * Android 13 から通知は許可制になった。**断られていても notify は例外を投げない。**
+     * 何も起きないだけで、runCatching では捕まらない。着信では、それが
+     * 「電話が鳴らないのに誰も気付かない」という形で出る。
+     *
+     * 鳴らないのは同じだが、**理由がログに残る**。「アプリが壊れている」と
+     * 「通知を切っている」を、あとから区別できるようにする。
+     *
+     * 呼ぶ側にも同じ確認が並んでいるのは重複ではない。**静的解析は関数をまたいで
+     * ガードを追えない**ので、notify を書いた場所そのものに確認が要る。
+     * こちらは理由を残すため、あちらは検査に見せるため。
+     */
+    fun denied(context: Context): Boolean {
+        val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            android.util.Log.w(TAG, "通知が許可されていないので着信を出せない")
+        }
+        return !granted
     }
 
     fun dismiss(context: Context) {
