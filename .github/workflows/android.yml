@@ -95,6 +95,23 @@ jobs:
         working-directory: android
         run: ./gradlew test --console=plain
 
+      - name: 検査する
+        working-directory: android
+        # **最初の CI では外していた。** 緑にすることを優先したのが理由で、
+        # よい理由ではない。実際あとから手で回したら、Android 7 で着信が落ちる
+        # 経路が見つかった。緑のために外した検査は、外れたまま忘れられる。
+        run: ./gradlew :app:lintDebug --console=plain
+
+      - name: 検査の結果を持ち帰る
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: |
+            android/app/build/reports/lint-results-*.html
+            android/app/build/intermediates/lint_intermediate_text_report/**/*.txt
+          if-no-files-found: ignore
+
       - name: 落ちた試験の記録を持ち帰る
         if: failure()
         uses: actions/upload-artifact@v4
