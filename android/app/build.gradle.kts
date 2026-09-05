@@ -53,8 +53,8 @@ android {
         // Versioning: fixes and small additions bump the patch (0.1.0 -> 0.1.1); a
         // substantial new feature bumps the minor (0.1.x -> 0.2.0).
         // Keep in sync with outputs/README.md.
-        versionCode = 73
-        versionName = "0.20.6"
+        versionCode = 74
+        versionName = "0.20.7"
     }
 
     signingConfigs {
