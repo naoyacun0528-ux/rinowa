@@ -72,6 +72,19 @@ interface RinowaHaptics {
      */
     fun previewToken(token: HapticToken, forceTier: HapticTier? = null)
 
+    /**
+     * 実験室だけが使う、素の1発。トークンを通さずに長さと強さを直に指定する。
+     *
+     * **これは触覚の設計ではなく、モーターの物差し。** 安いモーターは回り切るまでに
+     * 20〜30ms かかるので、それより短い指示は強さをいくら上げても何も出ない。
+     * 出る／出ないの境目が端末ごとに違い、**問い合わせて分かる API が無い**ので、
+     * 実物を押して探すしかない。docs/HAPTIC_STRENGTH.md。
+     *
+     * 製品の画面からは呼ばない。段（tier）も上限も通さない生の指示なので、
+     * ここを本番で使うと、端末ごとの違いを吸収する仕組みを全部迂回することになる。
+     */
+    fun previewPulse(durationMs: Long, amplitude: Int)
+
     /** この端末が [token] に実際に使う段階。 */
     fun tierFor(token: HapticToken): HapticTier
 
@@ -124,6 +137,7 @@ class NoOpHaptics : RinowaHaptics {
     override fun perform(token: HapticToken) = Unit
     override fun performProgress(token: HapticToken, intensity: Float) = Unit
     override fun previewToken(token: HapticToken, forceTier: HapticTier?) = Unit
+    override fun previewPulse(durationMs: Long, amplitude: Int) = Unit
     override fun tierFor(token: HapticToken): HapticTier = HapticTier.None
     override fun setAppInForeground(inForeground: Boolean) = Unit
     override fun cancel() = Unit

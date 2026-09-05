@@ -85,6 +85,24 @@ class AndroidHaptics(context: Context) : RinowaHaptics {
         emit(token, forceTier ?: tierFor(token), scale)
     }
 
+    override fun previewPulse(durationMs: Long, amplitude: Int) {
+        val v = vibrator ?: return
+        val prefs = _preferences.value
+        if (!prefs.enabled) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // 強度のつまみを掛けない。**ここは物差しなので、目盛りのほうを動かさない。**
+        // 掛けてしまうと、短くて出ないのか弱くて出ないのかが分からなくなる。
+        val level = if (capabilities.hasAmplitudeControl) {
+            amplitude.coerceIn(1, 255)
+        } else {
+            VibrationEffect.DEFAULT_AMPLITUDE
+        }
+        // swallow-ok: 物差しが振れなかっただけ。実験室の画面が1回反応しない以外に
+        // 起きることは無く、次に押せばまた試せる。
+        runCatching {
+            dispatch(v, VibrationEffect.createWaveform(longArrayOf(durationMs), intArrayOf(level), -1))
+        }
+    }
     override fun tierFor(token: HapticToken): HapticTier {
         val spec = HapticTokens[token]
         val available = degradedTo ?: capabilities.bestTier

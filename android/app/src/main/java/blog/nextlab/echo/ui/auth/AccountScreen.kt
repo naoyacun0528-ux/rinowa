@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -39,6 +40,8 @@ import blog.nextlab.echo.core.designsystem.RinowaConfirmDialog
 import blog.nextlab.echo.core.designsystem.RinowaDimens
 import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.glassFace
+import androidx.compose.foundation.layout.Arrangement
+import blog.nextlab.echo.core.haptics.HapticIntensity
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
 import blog.nextlab.echo.data.UserRepository
@@ -61,6 +64,16 @@ fun AccountScreen(
     onOpenPrivacy: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenDirectLab: () -> Unit,
+    /** いまの触覚の強さ。実験室と同じ値を見る。 */
+    hapticIntensity: HapticIntensity,
+    /**
+     * 強さを変えたときの保存。
+     *
+     * ここに出すのは、**弱いモーターの端末では既定が届かない**から。強さを測る
+     * 手立てが Android に無いので、持ち主に決めてもらうしかない。
+     * docs/HAPTIC_STRENGTH.md。
+     */
+    onHapticIntensity: (HapticIntensity) -> Unit,
     onBack: () -> Unit,
 ) {
     val colors = RinowaTheme.colors
@@ -195,6 +208,29 @@ fun AccountScreen(
                 onOpenDirectLab()
             }
 
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "振動の強さ",
+                style = type.labelSmall,
+                color = colors.textTertiary,
+                modifier = Modifier.padding(
+                    start = RinowaDimens.screenPadding,
+                    end = RinowaDimens.screenPadding,
+                    top = 8.dp,
+                    bottom = 6.dp,
+                ),
+            )
+            IntensityRow(
+                selected = hapticIntensity,
+                onSelect = { intensity ->
+                    onHapticIntensity(intensity)
+                    // 選んだ強さで1回鳴らす。押した本人が、その場で違いを確かめられる。
+                    if (intensity != HapticIntensity.Off) {
+                        haptics.perform(HapticToken.SoftConfirm)
+                    }
+                },
+            )
+
             // あふれた画面では下の weight が 0 になり、リンクとログアウトが隣り合う。
             // 押し間違えないだけの隙間は、先に固定で置いておく。
             Spacer(Modifier.height(16.dp))
@@ -264,4 +300,48 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
             drawPath(path, colors.textTertiary, style = stroke)
         }
     }
+}
+
+/**
+ * 強さの4段。
+ *
+ * 実験室と同じ選択肢を、普通の画面にも出す。**設定そのものは前からあったのに、
+ * 触れる場所が実験室だけだった**ので、誰も届かなかった。
+ */
+@Composable
+private fun IntensityRow(selected: HapticIntensity, onSelect: (HapticIntensity) -> Unit) {
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = RinowaDimens.screenPadding),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        HapticIntensity.entries.forEach { intensity ->
+            val active = intensity == selected
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (active) colors.accent else colors.surfaceRaised)
+                    .clickable { onSelect(intensity) }
+                    .padding(vertical = 11.dp),
+            ) {
+                Text(
+                    text = intensityLabel(intensity),
+                    style = type.labelSmall,
+                    color = if (active) colors.onAccent else colors.textSecondary,
+                )
+            }
+        }
+    }
+}
+
+private fun intensityLabel(intensity: HapticIntensity): String = when (intensity) {
+    HapticIntensity.Off -> "なし"
+    HapticIntensity.Subtle -> "弱"
+    HapticIntensity.Normal -> "標準"
+    HapticIntensity.Strong -> "強"
 }

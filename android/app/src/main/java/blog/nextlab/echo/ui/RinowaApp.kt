@@ -39,6 +39,7 @@ import blog.nextlab.echo.calls.CallKind
 import blog.nextlab.echo.core.analytics.Analytics
 import blog.nextlab.echo.core.designsystem.RinowaMotion
 import blog.nextlab.echo.core.designsystem.RinowaTheme
+import blog.nextlab.echo.core.haptics.HapticIntensity
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
 import blog.nextlab.echo.core.haptics.RinowaHaptics
 import blog.nextlab.echo.data.LocalStickerStore
@@ -354,6 +355,19 @@ private fun MainNavigation(
     val conversations by (chatList?.conversations ?: remember { MutableStateFlow(emptyList()) })
         .collectAsStateWithLifecycle()
 
+    // 触覚の強さ。起動時に読むところ（RinowaApplication）は前からあったが、
+    // **書き戻す経路がどこにも無く、変えても再起動で戻っていた。**
+    // 覚えるのと、いま効かせるのは別なので、両方やる。
+    val hapticsController = LocalRinowaHaptics.current
+    val hapticPrefs by hapticsController.preferences.collectAsStateWithLifecycle()
+    val applyHaptics: (HapticIntensity) -> Unit = { intensity ->
+        val next = hapticPrefs.copy(
+            intensity = intensity,
+            enabled = intensity != HapticIntensity.Off,
+        )
+        hapticsController.setPreferences(next)
+        services?.settings?.putLocal(haptics = next)
+    }
     LaunchedEffect(openConversationId, conversations) {
         val target = openConversationId ?: return@LaunchedEffect
         val conversation = conversations.firstOrNull { it.id.value == target }
@@ -452,7 +466,10 @@ private fun MainNavigation(
                 )
             }
 
-            Screen.HapticLab -> HapticLabScreen(onBack = { screen = Screen.ChatList })
+            Screen.HapticLab -> HapticLabScreen(
+                onBack = { screen = Screen.ChatList },
+                onPreferencesChanged = { services?.settings?.putLocal(haptics = it) },
+            )
 
             Screen.Account -> if (user != null && authViewModel != null) {
                 AccountScreen(
@@ -468,6 +485,8 @@ private fun MainNavigation(
                     onOpenPrivacy = { screen = Screen.Privacy },
                     onOpenBackup = { screen = Screen.Backup },
                     onOpenDirectLab = { screen = Screen.DirectLab },
+                    hapticIntensity = hapticPrefs.intensity,
+                    onHapticIntensity = { intensity -> applyHaptics(intensity) },
                     onBack = { screen = Screen.ChatList },
                 )
             }

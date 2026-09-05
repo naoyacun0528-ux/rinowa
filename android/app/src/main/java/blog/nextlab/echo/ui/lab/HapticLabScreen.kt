@@ -42,6 +42,7 @@ import blog.nextlab.echo.core.designsystem.RinowaDimens
 import blog.nextlab.echo.core.designsystem.RinowaTheme
 import blog.nextlab.echo.core.designsystem.rememberRefreshRateInfo
 import blog.nextlab.echo.core.haptics.HapticIntensity
+import blog.nextlab.echo.core.haptics.HapticPreferences
 import blog.nextlab.echo.core.haptics.HapticTier
 import blog.nextlab.echo.core.haptics.HapticToken
 import blog.nextlab.echo.core.haptics.LocalRinowaHaptics
@@ -58,7 +59,17 @@ import kotlinx.coroutines.launch
  * 製品の機能ではない。この形のまま Prototype 0 より先へは出さない。
  */
 @Composable
-fun HapticLabScreen(onBack: () -> Unit) {
+fun HapticLabScreen(
+    onBack: () -> Unit,
+    /**
+     * 変えた強さを覚えておく口。
+     *
+     * setPreferences だけでは、その場では効くのに**再起動で元へ戻る**。
+     * 起動時に読む側（RinowaApplication）は用意されていたのに、書き戻す側が
+     * どこにも無かった。
+     */
+    onPreferencesChanged: (HapticPreferences) -> Unit = {},
+) {
     val colors = RinowaTheme.colors
     val type = RinowaTheme.type
     val haptics = LocalRinowaHaptics.current
@@ -145,9 +156,12 @@ fun HapticLabScreen(onBack: () -> Unit) {
                     options = HapticIntensity.entries.map { it to intensityLabel(it) },
                     selected = prefs.intensity,
                     onSelect = { intensity ->
-                        haptics.setPreferences(
-                            prefs.copy(intensity = intensity, enabled = intensity != HapticIntensity.Off),
+                        val next = prefs.copy(
+                            intensity = intensity,
+                            enabled = intensity != HapticIntensity.Off,
                         )
+                        haptics.setPreferences(next)
+                        onPreferencesChanged(next)
                         if (intensity != HapticIntensity.Off) {
                             haptics.previewToken(HapticToken.SoftConfirm, forcedTier)
                         }
@@ -222,6 +236,21 @@ fun HapticLabScreen(onBack: () -> Unit) {
                         }
                     },
                 )
+            }
+
+            item { SectionTitle("立ち上がり") }
+            item {
+                Text(
+                    text = "短い指示ほど、安いモーターは回り切る前に終わる。何ミリ秒から" +
+                        "感じ取れるかを探す。上から順に押して、最初にはっきり分かるものが" +
+                        "この端末の下限。強度のつまみは掛けていない。",
+                    style = RinowaTheme.type.labelSmall,
+                    color = RinowaTheme.colors.textTertiary,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                )
+            }
+            items(riseSteps, key = { it }) { ms ->
+                PulseRow(durationMs = ms, onPlay = { haptics.previewPulse(ms, 255) })
             }
         }
 
@@ -554,4 +583,54 @@ private fun intensityLabel(intensity: HapticIntensity): String = when (intensity
     HapticIntensity.Subtle -> "弱"
     HapticIntensity.Normal -> "標準"
     HapticIntensity.Strong -> "強"
+}
+
+/**
+ * 立ち上がりを探す刻み。
+ *
+ * いまのトークンの最短は 8ms で、いちばん短いものがここに並ぶ。他所の実装は
+ * 最短でも 30ms だった。**この端末がどこから感じ取れるかは押さないと分からない。**
+ * docs/HAPTIC_STRENGTH.md。
+ */
+private val riseSteps = listOf(8L, 12L, 16L, 24L, 32L, 48L, 64L)
+
+@Composable
+private fun PulseRow(durationMs: Long, onPlay: () -> Unit) {
+    val colors = RinowaTheme.colors
+    val type = RinowaTheme.type
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.surfaceRaised)
+            .clickable(onClick = onPlay)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = durationMs.toString() + " ms",
+            style = type.label,
+            color = colors.textPrimary,
+            modifier = Modifier.width(64.dp),
+        )
+        Text(
+            // いま使っている触覚のうち、この長さのものを添える。押した感触が
+            // 実際のどこに出るのかが、その場で分かるように。
+            text = riseNote(durationMs),
+            style = type.labelSmall,
+            color = colors.textTertiary,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private fun riseNote(durationMs: Long): String = when (durationMs) {
+    8L -> "いまの Selection（一覧を選ぶ）と同じ長さ"
+    12L -> "いまの SoftConfirm・Threshold と同じ"
+    16L -> ""
+    24L -> ""
+    32L -> ""
+    48L -> "いまの Destructive（35ms）より長い"
+    else -> "ここまで要るなら、短い触覚は諦めることになる"
 }
