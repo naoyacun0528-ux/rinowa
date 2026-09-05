@@ -145,11 +145,35 @@ class MessageRepository(
     suspend fun newestBodyCached(conversationId: ConversationId, me: UserId): String? =
         newestBody(conversationId, me, com.google.firebase.firestore.Source.DEFAULT)
 
+    /**
+     * 一覧の写しに入れるための、最新1件。
+     *
+     * [newestBodyCached] と同じものを、**どのメッセージのいつの本文か**ごと返す。
+     * 写しは新しいものが来たら捨てる必要があり、本文だけでは新旧が判定できない。
+     */
+    suspend fun newestForCache(conversationId: ConversationId, me: UserId): Newest? =
+        newestRecord(conversationId, me, com.google.firebase.firestore.Source.DEFAULT)
+
+    /** [newestForCache] が返すもの。 */
+    class Newest(
+        val messageId: String,
+        val senderId: UserId,
+        val sentAt: Long,
+        val kind: String,
+        val body: String,
+    )
+
     private suspend fun newestBody(
         conversationId: ConversationId,
         me: UserId,
         source: com.google.firebase.firestore.Source,
-    ): String? {
+    ): String? = newestRecord(conversationId, me, source)?.body
+
+    private suspend fun newestRecord(
+        conversationId: ConversationId,
+        me: UserId,
+        source: com.google.firebase.firestore.Source,
+    ): Newest? {
         val snapshot = runCatching {
             messages(conversationId)
                 .orderBy(RinowaDb.Messages.SENT_AT, Query.Direction.DESCENDING)
@@ -166,8 +190,9 @@ class MessageRepository(
 
         val document = snapshot.documents.firstOrNull() ?: return null
         val senderId = document.getString(RinowaDb.Messages.SENDER_ID)?.let(::UserId) ?: return null
+        val kind = document.getString(RinowaDb.Messages.KIND) ?: return null
 
-        return when (document.getString(RinowaDb.Messages.KIND)) {
+        val body = when (kind) {
             RinowaDb.Messages.KIND_TEXT -> document.getString(RinowaDb.Messages.TEXT)
 
             RinowaDb.Messages.KIND_ENC -> {
@@ -181,7 +206,17 @@ class MessageRepository(
             RinowaDb.Messages.KIND_IMAGE -> "写真"
             RinowaDb.Messages.KIND_STICKER -> "スタンプ"
             else -> null
-        }
+        } ?: return null
+
+        return Newest(
+            messageId = document.id,
+            senderId = senderId,
+            // 時刻が読めなければ写しに入れない。**新旧を判定できない行を持つと、
+            // 古い1行を出し続ける写しになる。** 出せないより悪い。
+            sentAt = document.getLong(RinowaDb.Messages.SENT_AT) ?: return null,
+            kind = kind,
+            body = body,
+        )
     }
 
     /**

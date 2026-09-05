@@ -28,6 +28,7 @@ import blog.nextlab.echo.data.FeedbackRepository
 import blog.nextlab.echo.data.LocalStickerStore
 import blog.nextlab.echo.data.MediaBudget
 import blog.nextlab.echo.data.MediaRepository
+import blog.nextlab.echo.data.MessageCache
 import blog.nextlab.echo.data.MessageRepository
 import blog.nextlab.echo.data.ProfilePhotos
 import blog.nextlab.echo.data.RinowaServices
@@ -206,6 +207,7 @@ class RinowaApplication : Application() {
                 stickers = StickerRepository(firestore),
                 feedback = FeedbackRepository(firestore),
                 settings = settings,
+                messageCache = MessageCache(this),
                 photos = ProfilePhotos(this, firestore),
                 media = MediaRepository(this, firestore, mediaStore),
                 mediaStore = mediaStore,

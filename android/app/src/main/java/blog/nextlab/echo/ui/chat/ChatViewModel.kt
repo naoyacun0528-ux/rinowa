@@ -101,6 +101,13 @@ class ChatViewModel(
     private var seenRead: Set<MessageId>? = null
 
     init {
+        // 一覧の写しを捨てる順を、開いた順にする。
+        //
+        // 届いた順で捨てると、遡って読んでいた会話の1行から消える。**古い会話でも、
+        // さっき開いたならまた開く。**
+        viewModelScope.launch(Dispatchers.IO) {
+            services.messageCache?.markOpened(conversation.id)
+        }
         viewModelScope.launch {
             profiles = services.users.profiles(conversation.memberIds.filter { it != me })
             myDisplayName = services.users.profile(me).getOrNull()?.displayName.orEmpty()

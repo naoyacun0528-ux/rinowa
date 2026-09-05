@@ -29,6 +29,13 @@ class RinowaServices(
     val stickers: StickerRepository,
     val feedback: FeedbackRepository,
     val settings: SettingsRepository,
+    /**
+     * 一覧に出す1行の、この端末の写し。
+     *
+     * 無くても一覧は出る（Firestore の永続キャッシュから読んで復号する）。あるのは
+     * **その復号を毎回やらないため**で、会話が100件あれば描くたびに100回走っていた。
+     */
+    val messageCache: MessageCache? = null,
     val photos: ProfilePhotos? = null,
     val media: MediaRepository? = null,
     /**

@@ -74,6 +74,14 @@ class AuthViewModel(
             "端末の push 登録を消す手立てが渡されていない。この端末は登録されたまま出ていく",
         )
     },
+    /**
+     * 一覧に出していた1行の写しを捨てるもの。
+     *
+     * あれは**開いた本文**なので、次にこの端末へ入った人に前の人の会話が見える。
+     * 消えなくてもサインアウトは止めない——アカウントは端末を出るべきで、
+     * 写しが残ることを理由に居座らせるほうが悪い。
+     */
+    private val forgetLocalMessages: () -> Unit = {},
 ) : ViewModel() {
 
     val state = repository.state
@@ -196,6 +204,9 @@ class AuthViewModel(
             try {
                 if (leaving != null) forgetThisDevice(leaving)
             } finally {
+                // 開いた本文の写しは、通信を待たずに消す。**次に入った人に
+                // 前の人の会話を見せない**のは、通信の成否と関係が無い。
+                forgetLocalMessages()
                 // 何があってもサインアウトはする。アカウントは端末を出るべきで、
                 // 登録が消せないことを理由に居座らせるほうが害が大きい。
                 // finally なのは、この ViewModel が先に片付いた場合でも
@@ -243,7 +254,11 @@ class AuthViewModel(
             currentUserId()?.let { forgetThisDevice(it) }
             repository.deleteAccount()
         }
-        if (deleted) return true
+        if (deleted) {
+            // 退会したアカウントの1行が端末に残る理由は無い。
+            forgetLocalMessages()
+            return true
+        }
         if ((notice as? AuthNotice.Failed)?.failure != AuthFailure.NeedsRecentLogin) return false
 
         val user = (state.value as? AuthState.SignedIn)?.user ?: return false
@@ -259,7 +274,7 @@ class AuthViewModel(
         }
         if (!provedIdentity) return false
 
-        return attempt { repository.deleteAccount() }
+        return attempt { repository.deleteAccount() }.also { if (it) forgetLocalMessages() }
     }
 
     /**

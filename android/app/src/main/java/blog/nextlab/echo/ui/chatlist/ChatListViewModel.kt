@@ -2,7 +2,6 @@ package blog.nextlab.echo.ui.chatlist
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +10,9 @@ import blog.nextlab.echo.core.model.ConversationId
 import blog.nextlab.echo.core.model.MessageText
 import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.core.model.UserProfile
+import blog.nextlab.echo.data.MessageCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import blog.nextlab.echo.data.MessageRepository
 import blog.nextlab.echo.data.RinowaServices
 import blog.nextlab.echo.data.UserRepository
@@ -104,14 +106,42 @@ class ChatListViewModel(
      * 鍵が来ていないときや、端末ができる前のメッセージのときは目印のまま。
      * 「何かある」と言いつつ中身を知ったふりをしない、正しい落とし方。
      */
-    private suspend fun previewFor(conversation: Conversation): MessageText {
+    private suspend fun previewFor(
+        conversation: Conversation,
+        cached: Map<String, MessageCache.Entry>,
+    ): MessageText {
         if (conversation.preview.value != MessageRepository.LOCKED_PREVIEW) {
             return conversation.preview
         }
-        // 一覧はサーバーに聞かない。手元にあるもので出す。
-        val opened = services.messages.newestBodyCached(conversation.id, me)
+
+        // 一度開いた1行は、この端末に置いてある。
+        //
+        // **写しが会話の最終時刻に追いついているときだけ使う。** 追いついていない
+        // なら、新しいものが来ているのに古い1行を出すことになる。1行くらいと思う
+        // かもしれないが、一覧の1行はその会話で最後に言われたことで、そこが古いと
+        // 「まだ返事が来ていない」に見える。
+        val entry = cached[conversation.id.value]
+        if (entry != null && entry.sentAt >= conversation.lastTimestampMs) {
+            entry.body?.let { return MessageText(it) }
+        }
+
+        // 無いか古いときだけ、Firestore の手元の写しから読んで開く。**ここが重い。**
+        // 会話の数だけ Megolm の復号が走るので、開いたものは覚えておく。
+        val newest = services.messages.newestForCache(conversation.id, me)
             ?: return conversation.preview
-        return MessageText(opened)
+        services.messageCache?.put(
+            listOf(
+                MessageCache.Entry(
+                    conversationId = conversation.id.value,
+                    messageId = newest.messageId,
+                    senderId = newest.senderId.value,
+                    sentAt = newest.sentAt,
+                    kind = newest.kind,
+                    body = newest.body,
+                ),
+            ),
+        )
+        return MessageText(newest.body)
     }
 
     /**
@@ -137,22 +167,29 @@ class ChatListViewModel(
      */
     private suspend fun decorate(list: List<Conversation>): List<Conversation> =
         coroutineScope {
-            list.map { conversation ->
+            // 写しは**1回の問い合わせで全会話ぶん**取る。会話ごとに聞くと、
+            // 復号をやめた意味が半分になる（問い合わせの数は会話の数だけ残る）。
+            val cached = withContext(Dispatchers.IO) {
+                services.messageCache?.newestPerConversation().orEmpty()
+            }
+            val decorated = list.map { conversation ->
                 async {
                     conversation.copy(
                         unreadCount = unreadFor(conversation),
-                        preview = previewFor(conversation),
+                        preview = previewFor(conversation, cached),
                     )
                 }
             }.awaitAll()
+
+            // 予算を超えた分を捨てる。**会話ごとの最新1件は必ず残る**ので、
+            // 捨てても一覧は空にならない。描き終えてから走らせる。
+            launch(Dispatchers.IO) { services.messageCache?.prune() }
+
+            decorated
         }
 
     private suspend fun unreadFor(conversation: Conversation): Int {
         val since = services.conversations.lastReadAt(me, conversation.id)
-        android.util.Log.i(
-            "Rinowa/unread",
-            "conv=" + conversation.id.value + " since=" + since + " last=" + conversation.lastTimestampMs,
-        )
         // 一度も開いていない会話。全部が新着だが、履歴を全部数えるのは会話の全読み込みに
         // なる。最初に開くまではバッジを出さない。
         if (since <= 0L) return 0
