@@ -5,6 +5,8 @@ import blog.nextlab.echo.data.MessageEnvelope
 import blog.nextlab.echo.core.model.MessageContent
 import blog.nextlab.echo.core.model.MessageId
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +39,14 @@ class RestoredMessages(context: Context) {
     private val file = File(context.filesDir, FILE)
     private val entries = ConcurrentHashMap<String, String>()
     private var loaded = false
+
+    /**
+     * 手元にあるファイルを読めなかった、退避もできなかった、という状態。
+     *
+     * このとき上書きすると、読めていない誰かの復元履歴をこちらの都合で捨てることに
+     * なる。読めなかっただけで中身が壊れているとは限らないので、書かずに諦める。
+     */
+    private var unreadable = false
 
     /**
      * 復元するたびに増える数。中身に意味は無く、変わったことだけを使う。
@@ -90,6 +100,8 @@ class RestoredMessages(context: Context) {
         // ファイルは次の起動で読み直され、そこでまた空にされる。
         runCatching { file.delete() }
         loaded = true
+        // 消してくれと言われた以上、読めなかったファイルを庇う理由はもう無い。
+        unreadable = false
     }
 
     private fun load() {
@@ -99,12 +111,22 @@ class RestoredMessages(context: Context) {
 
         val json = runCatching { file.readText() }
             .onFailure { android.util.Log.w(TAG, "restored history unreadable", it) }
-            .getOrNull() ?: return
+            .getOrNull()
+        if (json == null) {
+            // 一度読めなかっただけで中身が壊れていると決めつけない。次の起動で普通に
+            // 読めるかもしれないので、動かさず、代わりに上書きを止める。
+            unreadable = true
+            return
+        }
 
         val root = try {
             JSONObject(json)
         } catch (_: JSONException) {
             android.util.Log.w(TAG, "restored history is not an archive")
+            // こちらは中身が JSON として成立していない。空から作り直すしかないが、
+            // 元のファイルは残す。復元した平文がそこにしか無い可能性があって、
+            // 人の手なら救えるかもしれないものを、こちらの都合で捨てない。
+            unreadable = !setAside()
             return
         }
 
@@ -113,18 +135,53 @@ class RestoredMessages(context: Context) {
         }
     }
 
+    /** 読めなかったファイルを別名にずらす。ずらせたら true。 */
+    private fun setAside(): Boolean {
+        // 名前は毎回変える。決め打ちにすると、2回目の退避が1回目の退避を潰す。
+        val kept = File(file.parentFile, "$FILE.damaged-${System.currentTimeMillis()}")
+        val moved = runCatching { file.renameTo(kept) }
+            .onFailure { android.util.Log.w(TAG, "could not set aside restored history", it) }
+            .getOrDefault(false)
+        if (moved) android.util.Log.w(TAG, "damaged restored history kept as ${kept.name}")
+        return moved
+    }
+
     private fun persist() {
+        if (unreadable) {
+            android.util.Log.w(TAG, "not overwriting restored history that was never read")
+            return
+        }
+
         val root = JSONObject()
         for ((id, envelope) in entries) root.put(id, envelope)
 
-        runCatching { file.writeText(root.toString()) }
+        // 本体を直に開くと、書いている途中で落ちたときに**復元した分が丸ごと消える**。
+        // 途中で死んで困らない隣のファイルに書き切り、ディスクまで届いたのを確かめてから
+        // 名前を差し替える。差し替えは一瞬なので、前のファイルは最後まで前のまま。
+        val temp = File(file.parentFile, TEMP)
+        runCatching {
+            FileOutputStream(temp).use { out ->
+                out.write(root.toString().toByteArray())
+                out.flush()
+                // flush はアプリの中の話でしかない。ここまでやらないと、プロセスではなく
+                // 端末が落ちたときに中身の無いファイルへ差し替わる。
+                out.fd.sync()
+            }
+            if (!temp.renameTo(file)) throw IOException("could not replace $FILE")
+        }
             // 報告する。うまくいったように見えて再起動で消えている復元は、失敗したと
             // 言う復元より悪い（後者はもう一度試してもらえる）。
-            .onFailure { android.util.Log.w(TAG, "could not save restored history", it) }
+            .onFailure {
+                android.util.Log.w(TAG, "could not save restored history", it)
+                // swallow-ok: 消すのは自分が今書いた書きかけの控えだけで、利用者の
+                // 履歴は本体に手つかずで残っている。消せなくても次の保存で上書きされる。
+                runCatching { temp.delete() }
+            }
     }
 
     private companion object {
         const val FILE = "restored-history.json"
+        const val TEMP = "restored-history.json.writing"
         const val TAG = "Rinowa/backup"
     }
 }

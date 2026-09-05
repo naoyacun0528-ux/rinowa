@@ -68,8 +68,7 @@ class UserRepository(private val db: FirebaseFirestore) {
     }
 
     suspend fun profile(id: UserId): Result<UserProfile> = runCatching {
-        val snapshot = db.collection(RinowaDb.Users.COLLECTION).document(id.value).get().await()
-        snapshot.toProfile(id, fallbackName = "退会したユーザー")
+        userDocument(id).toProfile(id, fallbackName = "退会したユーザー")
     }
 
     /** 複数のプロフィールをまとめて解決する。読めなかったものは飛ばす。 */
@@ -82,14 +81,25 @@ class UserRepository(private val db: FirebaseFirestore) {
             ?: error("no invite code")
     }
 
-    /** @return そのコードが属するアカウント。誰も持っていなければ null。 */
+    /**
+     * 確かめられなかったときは失敗を返す。「誰も持っていない」と「こちらが確かめ
+     * られなかった」を同じ null にすると、呼ぶ側はどちらもコードの打ち間違いとして扱う。
+     *
+     * @return そのコードが属するアカウント。誰も持っていなければ null。
+     */
     suspend fun findByInviteCode(code: String): Result<UserProfile?> = runCatching {
         val normalised = normalise(code)
         if (normalised.length != CODE_LENGTH) return@runCatching null
 
         val entry = db.collection(RinowaDb.InviteCodes.COLLECTION).document(normalised).get().await()
+        if (entry.unverifiedAbsence()) error("invite code lookup only saw the cache")
         val uid = entry.getString(RinowaDb.InviteCodes.UID) ?: return@runCatching null
-        profile(UserId(uid)).getOrNull()
+
+        // ここは profile() を通さず自分で読む。あちらはドキュメントが無くても
+        // 退会した人として必ず1件返す作りで、読めなかったことを言う口を持たない。
+        val user = userDocument(UserId(uid))
+        if (user.unverifiedAbsence()) error("profile lookup only saw the cache")
+        user.toProfile(UserId(uid), fallbackName = "退会したユーザー")
     }
 
     suspend fun updateDisplayName(id: UserId, name: String): Result<Unit> = runCatching {
@@ -158,6 +168,20 @@ class UserRepository(private val db: FirebaseFirestore) {
             com.google.firebase.firestore.SetOptions.merge(),
         ).await()
     }
+
+    private suspend fun userDocument(id: UserId) =
+        db.collection(RinowaDb.Users.COLLECTION).document(id.value).get().await()
+
+    /**
+     * キャッシュしか見ていない「無い」は、無いことの証拠にならない。
+     *
+     * 圏外でも Firestore は例外を投げず、手元に残っているものだけで答える。一度も
+     * 届いていないドキュメントは、そこでは本当に存在しないものと同じ顔で返ってくる。
+     * 招待コードの照会でそれを鵜呑みにすると、繋がっていないだけの相手に
+     * 「そのコードの相手が見つかりませんでした」と言い切ることになる。
+     */
+    private fun com.google.firebase.firestore.DocumentSnapshot.unverifiedAbsence(): Boolean =
+        !exists() && metadata.isFromCache
 
     private fun com.google.firebase.firestore.DocumentSnapshot.toProfile(
         id: UserId,

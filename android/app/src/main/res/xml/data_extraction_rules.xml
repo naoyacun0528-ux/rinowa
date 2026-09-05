@@ -2,29 +2,79 @@
 <!--
     端末を移すとき、何を持っていくか。
 
-    **メッセージの写しは持っていかない。**
+    **何も持っていかない。**
 
-    あの中には封を開けた本文が入っている。Android の移行はいったんクラウドを
-    経由するので、載せれば本文が Google のサーバーへ行く。それは Rinowa が
-    「作った本人にも読めない」と言っていることと、正面からぶつかる。
+    アプリの専用領域に残るのは、封を開けたあとのものと、封を開けるための鍵。
+    Android の移行はいったんクラウドを経由するので、載せればそれが Google の
+    サーバーへ行く。それは Rinowa が「作った本人にも読めない」と言っていることと、
+    正面からぶつかる。
 
     マニフェストは android:allowBackup="false" なので、いまはそもそも何も
     載らない。それでもここに書くのは、**設定は誰かがいつか変えるから。**
-    allowBackup を true にした人が、本文まで一緒に持っていくつもりだったとは
+    allowBackup を true にした人が、鍵まで一緒に持っていくつもりだったとは
     限らない。二重に止めておく。
 
     会話は復元できないわけではない。バックアップの画面から、本人の暗証番号で
     開くドライブの控えを使う（docs/SYNC_AND_BACKUP.md）。そちらは端末を出る
     前に封をしてある。
+
+    **一覧は腐る。** ここには長いあいだ rinowa_messages.db の4行だけが並んで
+    いたが、あの表を作るコードは一度も呼ばれておらず、守っているつもりの行は
+    何も守っていなかった。その隣で、鍵も本文も写真も素通しだった。
+    下に並べたのは**実際に書かれている場所**であって、書かれていそうな場所では
+    ない。filesDir や設定ファイルに何かを置くクラスを足したら、ここにも足す。
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <!-- 鍵そのもの。ここが出ていったら、あとの行は全部ただの飾り。 -->
+        <exclude domain="file" path="crypto" />
+
+        <!-- 控えから戻した本文。名前のとおり平文で置いてある（RestoredMessages）。 -->
+        <exclude domain="file" path="restored-history.json" />
+
+        <!-- 復号して手元に置いた写真と動画。 -->
+        <exclude domain="file" path="media" />
+
+        <!-- スタンプと相手の顔。正本は向こうにあり、次に開いたとき取り直す。 -->
+        <exclude domain="file" path="stickers" />
+        <exclude domain="file" path="avatars" />
+
+        <!--
+            設定ファイル。触覚の好みだけが入っているわけではない。端末 id と
+            push の登録がここにあり、これが複製された端末は、鍵の持ち主を
+            名乗る2台目になる。
+        -->
+        <exclude domain="sharedpref" path="rinowa_crypto.xml" />
+        <exclude domain="sharedpref" path="rinowa_known_devices.xml" />
+        <exclude domain="sharedpref" path="rinowa_push.xml" />
+        <exclude domain="sharedpref" path="rinowa_settings.xml" />
+        <exclude domain="sharedpref" path="rinowa.todevice.xml" />
+
+        <!--
+            メッセージの表。**いまはこのファイルを作るコードが動いていない。**
+            MessageCache は書いてあるが、どこからも呼ばれていない。それでも
+            残すのは、使い始めた日にここを書き忘れないため。
+        -->
         <exclude domain="database" path="rinowa_messages.db" />
         <exclude domain="database" path="rinowa_messages.db-journal" />
         <exclude domain="database" path="rinowa_messages.db-wal" />
         <exclude domain="database" path="rinowa_messages.db-shm" />
     </cloud-backup>
+
+    <!-- 上と同じ並び。理由も同じなので、片方だけに足さない。 -->
     <device-transfer>
+        <exclude domain="file" path="crypto" />
+        <exclude domain="file" path="restored-history.json" />
+        <exclude domain="file" path="media" />
+        <exclude domain="file" path="stickers" />
+        <exclude domain="file" path="avatars" />
+
+        <exclude domain="sharedpref" path="rinowa_crypto.xml" />
+        <exclude domain="sharedpref" path="rinowa_known_devices.xml" />
+        <exclude domain="sharedpref" path="rinowa_push.xml" />
+        <exclude domain="sharedpref" path="rinowa_settings.xml" />
+        <exclude domain="sharedpref" path="rinowa.todevice.xml" />
+
         <exclude domain="database" path="rinowa_messages.db" />
         <exclude domain="database" path="rinowa_messages.db-journal" />
         <exclude domain="database" path="rinowa_messages.db-wal" />

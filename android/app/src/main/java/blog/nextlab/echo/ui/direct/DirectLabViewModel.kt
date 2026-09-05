@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import blog.nextlab.echo.auth.AuthState
+import blog.nextlab.echo.bestEffort
 import blog.nextlab.echo.calls.NetworkProbe
 import blog.nextlab.echo.core.wire.YosegiBenchmark
 import blog.nextlab.echo.crypto.CryptoEngine
@@ -26,7 +27,10 @@ import blog.nextlab.echo.direct.PeerLink
 import blog.nextlab.echo.core.model.ConversationId
 import blog.nextlab.echo.core.model.UserId
 import com.google.android.gms.nearby.connection.BandwidthInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
@@ -39,8 +43,13 @@ import kotlinx.coroutines.launch
 class DirectLabViewModel(context: Context) : ViewModel() {
 
     private val app = context.applicationContext
-    private val nearby: DirectTransport by lazy { NearbyDirectTransport(app) }
-    private val lan: DirectTransport by lazy { LanDirectTransport(app) }
+
+    // 遅延させたものを委譲だけで持たず、Lazy そのものも持つ。後片付けのときに
+    // 「触っていないほうは作らない」と言うには、初期化済みかどうかを聞く必要がある。
+    private val nearbyLazy = lazy<DirectTransport> { NearbyDirectTransport(app) }
+    private val lanLazy = lazy<DirectTransport> { LanDirectTransport(app) }
+    private val nearby: DirectTransport by nearbyLazy
+    private val lan: DirectTransport by lanLazy
 
     var tier by mutableStateOf(DirectTier.Nearby)
         private set
@@ -480,10 +489,28 @@ class DirectLabViewModel(context: Context) : ViewModel() {
         if (log.size > MAX_LOG) log.removeAt(log.lastIndex)
     }
 
+    /**
+     * この ViewModel より長く生きる、後片付け専用のスコープ。
+     *
+     * viewModelScope では閉じられない。ViewModel.clear() は viewModelScope を閉じてから
+     * onCleared() を呼ぶので、そこで launch した処理は**始まる前に取り消される**。
+     * 実際そうなっていて、stopAllEndpoints もソケットの close も一度も走らず、
+     * 成立済みの接続は相手から見て繋がったまま残り、電池を食い続けていた。
+     *
+     * 誰にも取り消されない代わりに、取り消す相手もいない。ここで走るのは shutdown だけで、
+     * それが終われば参照が消えて回収される。
+     */
+    private val teardown = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCleared() {
-        viewModelScope.launch {
-            runCatching { nearby.shutdown() }
-            runCatching { lan.shutdown() }
+        // 触っていない通信路は作らない。lazy に触れた瞬間に Nearby / NSD の実体ができるので、
+        // 閉じるためだけに開くことになる。
+        val opened = listOf(nearbyLazy, lanLazy).filter { it.isInitialized() }.map { it.value }
+        teardown.launch {
+            // 片方が投げても、もう片方は閉じる。失敗しても記録は残る。
+            opened.forEach { transport ->
+                bestEffort("shutdown ${transport.capabilities.tier}") { transport.shutdown() }
+            }
         }
     }
 

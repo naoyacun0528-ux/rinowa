@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -93,53 +95,17 @@ fun AccountScreen(
     ) {
         ScreenHeader(title = "アカウント", onBack = onBack)
 
-        Spacer(Modifier.height(12.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        // 画面の低い端末や、文字を大きくした端末では、下2つのボタンが画面の外に出て
+        // 押せなくなっていた。ヘッダーは兄弟の画面と同じで動かさず、その下だけを流す。
+        // fillMaxSize で高さが決まってから verticalScroll に渡しているので、下の weight は
+        // 画面が余っているときだけ伸び、あふれたら 0 になってそのまま下へ続く。
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = RinowaDimens.glassCardMargin)
-                .glassFace(shape = RoundedCornerShape(RinowaDimens.glassCorner))
-                .padding(RinowaDimens.listItemPadding),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
         ) {
-            Avatar(
-                title = user.displayName ?: user.email ?: "?",
-                seed = user.uid.hashCode(),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = user.displayName ?: "名前未設定",
-                    style = type.listName,
-                    color = colors.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = user.email ?: "アドレス未登録",
-                    style = type.listPreview,
-                    color = colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = user.providers.joinToString(" ・ ") { provider ->
-                        when (provider) {
-                            AuthProvider.Google -> "Google"
-                            AuthProvider.Password -> "メールアドレス"
-                        }
-                    },
-                    style = type.labelSmall,
-                    color = colors.textTertiary,
-                )
-            }
-        }
+            Spacer(Modifier.height(12.dp))
 
-        if (inviteCode != null) {
-            Spacer(Modifier.height(10.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -148,80 +114,129 @@ fun AccountScreen(
                     .glassFace(shape = RoundedCornerShape(RinowaDimens.glassCorner))
                     .padding(RinowaDimens.listItemPadding),
             ) {
+                Avatar(
+                    title = user.displayName ?: user.email ?: "?",
+                    seed = user.uid.hashCode(),
+                )
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(text = "招待コード", style = type.labelSmall, color = colors.textTertiary)
-                    Spacer(Modifier.height(3.dp))
                     Text(
-                        text = UserRepository.format(inviteCode),
+                        text = user.displayName ?: "名前未設定",
                         style = type.listName,
                         color = colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = user.email ?: "アドレス未登録",
+                        style = type.listPreview,
+                        color = colors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = user.providers.joinToString(" ・ ") { provider ->
+                            when (provider) {
+                                AuthProvider.Google -> "Google"
+                                AuthProvider.Password -> "メールアドレス"
+                            }
+                        },
+                        style = type.labelSmall,
+                        color = colors.textTertiary,
                     )
                 }
             }
-        }
 
-        Spacer(Modifier.height(14.dp))
-        LinkRow("プロフィールを編集") {
-            haptics.perform(HapticToken.Navigation)
-            onOpenProfile()
-        }
-        LinkRow("フィードバックを送る・見る") {
-            haptics.perform(HapticToken.Navigation)
-            onOpenFeedback()
-        }
-        LinkRow("プライバシーと計測") {
-            haptics.perform(HapticToken.Navigation)
-            onOpenPrivacy()
-        }
-        LinkRow("バックアップ") {
-            haptics.perform(HapticToken.Navigation)
-            onOpenBackup()
-        }
-        // Direct-1 の開発用。Rinowa Direct が自分で経路を選ぶようになり、誰も押さなく
-        // なった時点でここから外す。
-        LinkRow("Rinowa Direct（検証中）") {
-            haptics.perform(HapticToken.Navigation)
-            onOpenDirectLab()
-        }
+            if (inviteCode != null) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = RinowaDimens.glassCardMargin)
+                        .glassFace(shape = RoundedCornerShape(RinowaDimens.glassCorner))
+                        .padding(RinowaDimens.listItemPadding),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(text = "招待コード", style = type.labelSmall, color = colors.textTertiary)
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = UserRepository.format(inviteCode),
+                            style = type.listName,
+                            color = colors.textPrimary,
+                        )
+                    }
+                }
+            }
 
-        Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(14.dp))
+            LinkRow("プロフィールを編集") {
+                haptics.perform(HapticToken.Navigation)
+                onOpenProfile()
+            }
+            LinkRow("フィードバックを送る・見る") {
+                haptics.perform(HapticToken.Navigation)
+                onOpenFeedback()
+            }
+            LinkRow("プライバシーと計測") {
+                haptics.perform(HapticToken.Navigation)
+                onOpenPrivacy()
+            }
+            LinkRow("バックアップ") {
+                haptics.perform(HapticToken.Navigation)
+                onOpenBackup()
+            }
+            // Direct-1 の開発用。Rinowa Direct が自分で経路を選ぶようになり、誰も押さなく
+            // なった時点でここから外す。
+            LinkRow("Rinowa Direct（検証中）") {
+                haptics.perform(HapticToken.Navigation)
+                onOpenDirectLab()
+            }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-        ) {
-            QuietButton(
-                enabled = true,
-                onClick = {
-                    haptics.perform(HapticToken.Selection)
-                    confirmingSignOut = true
-                },
-                modifier = Modifier.align(Alignment.Center),
-            ) { color -> QuietButtonLabel("ログアウト", color) }
+            // あふれた画面では下の weight が 0 になり、リンクとログアウトが隣り合う。
+            // 押し間違えないだけの隙間は、先に固定で置いておく。
+            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.weight(1f))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+            ) {
+                QuietButton(
+                    enabled = true,
+                    onClick = {
+                        haptics.perform(HapticToken.Selection)
+                        confirmingSignOut = true
+                    },
+                    modifier = Modifier.align(Alignment.Center),
+                ) { color -> QuietButtonLabel("ログアウト", color) }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // サインアウトから離して、危険の色で、直接実行せずページへ進ませる。
+            // どれも、2つが混同されないようにするためにある。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+            ) {
+                QuietButton(
+                    enabled = true,
+                    onClick = {
+                        haptics.perform(HapticToken.Navigation)
+                        onDeleteAccount()
+                    },
+                    modifier = Modifier.align(Alignment.Center),
+                ) { _ -> QuietButtonLabel("アカウントを削除", colors.danger) }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.navigationBarsPadding())
         }
-
-        Spacer(Modifier.height(4.dp))
-
-        // サインアウトから離して、危険の色で、直接実行せずページへ進ませる。
-        // どれも、2つが混同されないようにするためにある。
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-        ) {
-            QuietButton(
-                enabled = true,
-                onClick = {
-                    haptics.perform(HapticToken.Navigation)
-                    onDeleteAccount()
-                },
-                modifier = Modifier.align(Alignment.Center),
-            ) { _ -> QuietButtonLabel("アカウントを削除", colors.danger) }
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Spacer(Modifier.navigationBarsPadding())
     }
 }
 

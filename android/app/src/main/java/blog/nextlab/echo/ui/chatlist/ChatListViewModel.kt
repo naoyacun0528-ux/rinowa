@@ -221,15 +221,22 @@ class ChatListViewModel(
     fun startDirect(rawCode: String, onResult: (StartChatOutcome) -> Unit) {
         viewModelScope.launch {
             val code = UserRepository.normalise(rawCode)
-            val found = services.users.findByInviteCode(code).getOrNull()
-            when {
-                found == null -> onResult(StartChatOutcome.NotFound)
-                found.id == me -> onResult(StartChatOutcome.Yourself)
-                else -> services.conversations.openDirect(me, found.id).fold(
-                    onSuccess = { onResult(StartChatOutcome.Opened(it)) },
-                    onFailure = { onResult(StartChatOutcome.Failed) },
-                )
-            }
+            services.users.findByInviteCode(code).fold(
+                onSuccess = { found ->
+                    when {
+                        found == null -> onResult(StartChatOutcome.NotFound)
+                        found.id == me -> onResult(StartChatOutcome.Yourself)
+                        else -> services.conversations.openDirect(me, found.id).fold(
+                            onSuccess = { onResult(StartChatOutcome.Opened(it)) },
+                            onFailure = { onResult(StartChatOutcome.Failed) },
+                        )
+                    }
+                },
+                // 照会そのものが失敗したときに NotFound を出さない。「見つかりません
+                // でした」と言われた人はコードを疑って打ち直すが、直すところは
+                // そこではない。
+                onFailure = { onResult(StartChatOutcome.Failed) },
+            )
         }
     }
 

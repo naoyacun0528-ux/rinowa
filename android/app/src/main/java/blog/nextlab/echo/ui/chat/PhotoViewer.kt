@@ -123,6 +123,15 @@ fun PhotoViewer(
 
     // 保存は画面が何も変わらないので、言葉で出さないと成否がわからない。
     var saveResult by remember { mutableStateOf<String?>(null) }
+
+    /**
+     * 取得を伴う操作が走っている。
+     *
+     * 動画とオリジナルは本体がまだ端末に無いことがあり、その取得には数秒かかる。
+     * 画面は「準備しています…」としか言わないので、待っている人はもう一度押す。
+     * 同じファイルを2本で取りに行くと、片方が相手の書きかけを踏む。
+     */
+    var fetching by remember { mutableStateOf(false) }
     var choosing by remember { mutableStateOf(false) }
     val backdrop = rememberBackdropState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -360,23 +369,39 @@ fun PhotoViewer(
                 // 取得を終えてから開く。そのあいだ何も出ないと固まって見える。
                 if (onShareVideo != null) {
                     ViewerAction(label = "共有", icon = ViewerIcon.Share) {
+                        if (fetching) return@ViewerAction
+                        fetching = true
                         haptics.perform(HapticToken.SoftConfirm)
                         saveResult = "準備しています…"
                         scope.launch {
-                            val shared = onShareVideo(currentVideo)
-                            haptics.perform(if (shared) HapticToken.Send else HapticToken.SoftConfirm)
-                            saveResult = if (shared) null else "共有できませんでした"
+                            try {
+                                val shared = onShareVideo(currentVideo)
+                                haptics.perform(
+                                    if (shared) HapticToken.Send else HapticToken.SoftConfirm,
+                                )
+                                saveResult = if (shared) null else "共有できませんでした"
+                            } finally {
+                                fetching = false
+                            }
                         }
                     }
                 }
                 if (onSaveVideo != null) {
                     ViewerAction(label = "保存", icon = ViewerIcon.Save) {
+                        if (fetching) return@ViewerAction
+                        fetching = true
                         haptics.perform(HapticToken.SoftConfirm)
                         saveResult = "保存しています…"
                         scope.launch {
-                            val saved = onSaveVideo(currentVideo)
-                            haptics.perform(if (saved) HapticToken.Send else HapticToken.SoftConfirm)
-                            saveResult = if (saved) "保存しました" else "保存できませんでした"
+                            try {
+                                val saved = onSaveVideo(currentVideo)
+                                haptics.perform(
+                                    if (saved) HapticToken.Send else HapticToken.SoftConfirm,
+                                )
+                                saveResult = if (saved) "保存しました" else "保存できませんでした"
+                            } finally {
+                                fetching = false
+                            }
                         }
                     }
                 }
@@ -437,18 +462,24 @@ fun PhotoViewer(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ChoiceRow("オリジナル", size(originalBytes)) {
+                        if (fetching) return@ChoiceRow
+                        fetching = true
                         choosing = false
                         saveResult = "保存しています…"
                         scope.launch {
-                            val saved = currentPhoto != null &&
-                                onSaveOriginal?.invoke(currentPhoto) == true
-                            haptics.perform(
-                                if (saved) HapticToken.Send else HapticToken.SoftConfirm,
-                            )
-                            saveResult = if (saved) {
-                                "保存しました"
-                            } else {
-                                "元のファイルは取得できませんでした"
+                            try {
+                                val saved = currentPhoto != null &&
+                                    onSaveOriginal?.invoke(currentPhoto) == true
+                                haptics.perform(
+                                    if (saved) HapticToken.Send else HapticToken.SoftConfirm,
+                                )
+                                saveResult = if (saved) {
+                                    "保存しました"
+                                } else {
+                                    "元のファイルは取得できませんでした"
+                                }
+                            } finally {
+                                fetching = false
                             }
                         }
                     }

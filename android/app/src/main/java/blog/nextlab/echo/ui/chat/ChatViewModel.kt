@@ -26,6 +26,7 @@ import blog.nextlab.echo.core.model.UserId
 import blog.nextlab.echo.core.model.UserProfile
 import blog.nextlab.echo.core.model.previewText
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -210,9 +211,29 @@ class ChatViewModel(
             "${id.value.take(8)}: 取りに行く（鍵は${if (key == null) "無し" else "有り"}）",
         )
         viewModelScope.launch {
-            if (media.fetch(id, key)) mediaRevision++
+            if (media.fetch(id, key)) {
+                mediaAttempts.remove(id)
+                mediaRevision++
+                return@launch
+            }
+            // 取れなかった。届いた上で中身が違っていた写真（isKnownMissing）は、
+            // 何度頼んでも同じなのでここで終わり。圏外や一時的な失敗はそうではない。
+            // requestedMedia から外し、描き直しを促せば、**まだ画面に出ている行だけ**が
+            // もう一度頼む。閉じた会話や流れていった写真は誰も頼まないので止まる。
+            if (media.isKnownMissing(id)) return@launch
+
+            // 間隔は試すたびに伸ばす。1回目は電波の切れ目のことが多く、そこで
+            // 何十秒も待たせる理由が無い。ずっと圏外なら15秒おきに落ち着く。
+            val attempt = (mediaAttempts[id] ?: 0) + 1
+            mediaAttempts[id] = attempt
+            delay(RETRY_MEDIA_MS * attempt.coerceAtMost(5))
+            requestedMedia.remove(id)
+            mediaRevision++
         }
     }
+
+    /** 何回取り損ねたか。次にいつ頼み直すかを決めるためだけのもの。 */
+    private val mediaAttempts = mutableMapOf<MediaId, Int>()
 
     fun cachedMedia(id: MediaId) = services.media?.cached(id)
 
@@ -237,8 +258,31 @@ class ChatViewModel(
         val id = image.originalId ?: return null
         val key = image.originalKey ?: return null
         return media.fetchOriginal(id, key)
+            .onSuccess { fetchedOriginals += id }
             .onFailure { android.util.Log.w("Rinowa/media", "original fetch failed", it) }
             .getOrNull()
+    }
+
+    /**
+     * [originalPhoto] が端末に置いた一時ファイル。
+     *
+     * ギャラリーへ書き出したあとも `filesDir/media/<id>.original` に残る。原寸の
+     * 写真なので1枚数MB、しかも利用者からは見えない。書き出しの終わりを知っている
+     * のはビューア側なので、この画面を閉じるまで持って、そこでまとめて片付ける。
+     */
+    private val fetchedOriginals = mutableSetOf<MediaId>()
+
+    /**
+     * 会話を閉じたところで、取り寄せた原寸の複製を片付ける。
+     *
+     * 消すのは `<id>.original` だけ。保存のためにこのアプリがさっき作った複製で、
+     * 写真そのものは吹き出しの圧縮版も保管庫のオリジナルも別にある。ここへ来る
+     * のは会話が画面から降りたあとで、書き出しを走らせていたスコープはもう無い。
+     */
+    override fun onCleared() {
+        val media = services.media ?: return
+        fetchedOriginals.forEach(media::discardOriginal)
+        fetchedOriginals.clear()
     }
 
     /**
@@ -571,3 +615,11 @@ class ChatViewModel(
             }
     }
 }
+
+/**
+ * 取り損ねた写真をもう一度頼むまでの、いちばん短い間隔。
+ *
+ * 短すぎると圏外の端末が数秒おきに同じ失敗を繰り返し、長すぎると電波が戻っても
+ * しばらく灰色のままになる。3秒から始めて、続けて失敗するぶんだけ伸ばす。
+ */
+private const val RETRY_MEDIA_MS = 3_000L

@@ -282,6 +282,8 @@ class WebRtcSession(
     var localVideo: org.webrtc.VideoTrack? = null
         private set
 
+    /** カメラのスレッドから書き、メインスレッドから読む。 */
+    @Volatile
     var usingFrontCamera: Boolean = true
         private set
 
@@ -334,10 +336,31 @@ class WebRtcSession(
         return wanted ?: names.firstOrNull()
     }
 
-    fun switchCamera() {
-        videoCapturer?.switchCamera(object : CameraVideoCapturer.CameraSwitchHandler {
-            override fun onCameraSwitchDone(isFront: Boolean) { usingFrontCamera = isFront }
-            override fun onCameraSwitchError(error: String?) = Unit
+    /**
+     * 内カメラと外カメラを入れ替える。
+     *
+     * 切り替わるのはカメラのスレッドが開き直したあとで、この関数が戻った時点ではまだ
+     * 前のカメラのまま。だから戻り値では答えられない。本当の向きは [onResult] に届く値で、
+     * 失敗（他のアプリがカメラを掴んでいる、切り替えが二重に走った）もここにしか出ない。
+     *
+     * **[onResult] はカメラのスレッドで呼ばれる。** 画面に触るなら呼び出し側で移すこと。
+     */
+    fun switchCamera(onResult: (Result<Boolean>) -> Unit) {
+        val capturer = videoCapturer ?: run {
+            // カメラが開いていなくてもボタンは押せる。黙って戻ると、何も起きないボタンに
+            // 逆戻りする。
+            onResult(Result.failure(IllegalStateException("カメラが開いていません")))
+            return
+        }
+        capturer.switchCamera(object : CameraVideoCapturer.CameraSwitchHandler {
+            override fun onCameraSwitchDone(isFront: Boolean) {
+                usingFrontCamera = isFront
+                onResult(Result.success(isFront))
+            }
+
+            override fun onCameraSwitchError(error: String?) {
+                onResult(Result.failure(IllegalStateException(error.orEmpty().ifEmpty { "理由不明" })))
+            }
         })
     }
 

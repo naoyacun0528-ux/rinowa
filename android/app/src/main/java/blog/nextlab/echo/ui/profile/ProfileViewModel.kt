@@ -40,8 +40,13 @@ class ProfileViewModel(
     var photoHash by mutableStateOf<String?>(null)
         private set
 
-    var loading by mutableStateOf(true)
+    /** 読み込みが終わるまで true。失敗しても false になるので、結果は [ready] で見る。 */
+    var loading by mutableStateOf(false)
         private set
+
+    /** 読み込めたか。失敗すると false のまま残り、これが保存を止める根拠になる。 */
+    val ready: Boolean
+        get() = loaded != null
 
     var saving by mutableStateOf(false)
         private set
@@ -59,14 +64,31 @@ class ProfileViewModel(
     private var loaded: UserProfile? = null
 
     init {
+        load()
+    }
+
+    /**
+     * サーバーにある今の値を取る。読み直しにも使う。
+     *
+     * 失敗したら `loaded` は null のまま残す。これが保存を止める。空の画面を
+     * そのまま保存すると、更新は「地図に無い項目」を残すだけなので、null として
+     * 送られる一行と写真が値ごと消える。読めていないものは書き戻せない。
+     */
+    fun load() {
+        if (loading) return
+        loading = true
+        error = null
+
         viewModelScope.launch {
-            services.users.profile(me).onSuccess { profile ->
-                loaded = profile
-                name = profile.displayName
-                statusMessage = profile.statusMessage.orEmpty()
-                photoHash = profile.photoHash
-                services.photos?.fetch(me, profile.photoHash)
-            }
+            services.users.profile(me)
+                .onSuccess { profile ->
+                    loaded = profile
+                    name = profile.displayName
+                    statusMessage = profile.statusMessage.orEmpty()
+                    photoHash = profile.photoHash
+                    services.photos?.fetch(me, profile.photoHash)
+                }
+                .onFailure { error = "プロフィールを読み込めませんでした。" }
             loading = false
         }
     }
@@ -105,7 +127,9 @@ class ProfileViewModel(
     }
 
     fun save(onDone: () -> Unit) {
-        if (saving || name.isBlank()) return
+        // 読み込めていないときは書かない。画面も編集欄を出さないが、保存が消しうる
+        // 操作である以上、止める場所は画面だけであってはいけない。
+        if (saving || loading || !ready || name.isBlank()) return
         saving = true
         error = null
 

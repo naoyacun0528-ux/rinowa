@@ -16,6 +16,8 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
@@ -81,8 +83,28 @@ class MediaRepository(
                 .toInt()
     }
 
-    /** 無いと分かっている id。毎フレーム取りに行かないため。 */
+    /**
+     * **恒久的に**無いと分かっている id。毎フレーム取りに行かないため。
+     *
+     * ここに入れてよいのは、もう一度頼んでも同じ答えしか返らないものだけ。
+     * ハッシュが合わない、鍵が開かない、昔の置き場にも無い。**圏外や通信の失敗は
+     * 入れない。** 一度の失敗で「この写真は存在しない」にしてしまうと、電波が
+     * 戻ってもサムネイルがぼけたまま、押しても何も起きない写真になる。
+     */
     private val absent = ConcurrentHashMap<String, Boolean>()
+
+    /**
+     * id ごとの錠。同じ写真を同時に2回取りに行かせない。
+     *
+     * 1つの id に対して `<id>.sealed` も平文も1本しかなく、書き込みは追記ではなく
+     * 切り詰め。同時に走ると片方が相手の書きかけを上書きし、失敗した側が相手の
+     * 書いた平文を消して「無い」と記録する＝以後そのプロセスでは二度と取れない。
+     * 吹き出しとビューア、動画の「保存」と「共有」で普通に起きる。
+     *
+     * 終わった id も外さない。外した瞬間に別の呼び出しが新しい錠を作り、2本が
+     * 同時に走れてしまう。id ごとの Mutex 1個は絵1枚に比べれば無い。
+     */
+    private val fetching = ConcurrentHashMap<String, Mutex>()
 
     /**
      * 送信側がメッセージに入れる必要があるもの。
@@ -172,14 +194,20 @@ class MediaRepository(
         val tag = id.value.take(8)
         if (cached(id) != null) return false
         if (absent[id.value] == true) {
-            // 「無い」と一度決めたものは二度と取りに行かない。プロセスが生きている
-            // 間だけの記憶なので、開き直せば消える。**それを言わないと、
-            // 「押しても何も起きない」の理由が誰にも分からない。**
-            android.util.Log.w(TAG, "$tag: 前に取れなかったので、もう試さない")
+            // 届いた上で「これは違う／開かない」と分かったものだけがここに来る。
+            // プロセスが生きている間だけの記憶なので、開き直せば消える。**それを
+            // 言わないと、「押しても何も起きない」の理由が誰にも分からない。**
+            android.util.Log.w(TAG, "$tag: 中身が合わなかった写真なので、もう試さない")
             return false
         }
 
-        return if (key == null) fetchLegacy(id) else fetchStored(id, key)
+        return fetching.computeIfAbsent(id.value) { Mutex() }.withLock {
+            // 待っている間に、先に入ったほうが取り終えているかもしれない。
+            if (cached(id) != null) return@withLock false
+            if (absent[id.value] == true) return@withLock false
+
+            if (key == null) fetchLegacy(id) else fetchStored(id, key)
+        }
     }
 
     private suspend fun fetchStored(id: MediaId, key: ByteArray): Boolean {
@@ -202,8 +230,10 @@ class MediaRepository(
                 .isSuccess
         }
         if (!ok) {
+            // ここで absent を立てない。落ちた理由のほとんどは圏外か一時的なもので、
+            // 次に頼めば取れる。恒久的に無いものは、下の2つ（ハッシュ違い・鍵が
+            // 開かない）で捕まえる。
             sealed.delete()
-            absent[id.value] = true
             return false
         }
 
@@ -216,11 +246,16 @@ class MediaRepository(
             return false
         }
 
+        // 横に書いてから名前を付け替える。fileFor(id) へ直に書くと、開いた時点で
+        // 元の中身が消え、途中で失敗すれば半分の写真がその名前で残る。同じ
+        // ディレクトリなので付け替えはその場で終わる。
+        val staged = File(directory, id.value + PART_SUFFIX)
         val opened = withContext(Dispatchers.IO) {
             runCatching {
                 MediaCipher.open(sealed, key).use { plain ->
-                    fileFor(id).outputStream().use(plain::copyTo)
+                    staged.outputStream().use(plain::copyTo)
                 }
+                check(staged.renameTo(fileFor(id))) { "復号したファイルを置けません" }
             }
                 // 開かない鍵は本物の失敗なので見えないといけない。メッセージと
                 // オブジェクトが食い違っているということで、再試行では直らない。
@@ -230,7 +265,9 @@ class MediaRepository(
         sealed.delete()
 
         if (!opened) {
-            fileFor(id).delete()
+            // 消すのは自分が書きかけたものだけ。すでにそこにある平文は、今回の
+            // 復号が失敗したこととは関係が無い。
+            staged.delete()
             absent[id.value] = true
             return false
         }
@@ -239,13 +276,16 @@ class MediaRepository(
 
     /** 保管庫より前に送られた写真。Firestore に平文のまま、当時のかたちで残っている。 */
     private suspend fun fetchLegacy(id: MediaId): Boolean {
-        val bytes = runCatching {
+        val asked = runCatching {
             db.collection(RinowaDb.Media.COLLECTION).document(id.value)
                 .get().await()
                 .getBlob(RinowaDb.Media.BYTES)?.toBytes()
         }
             .onFailure { android.util.Log.w(TAG, "legacy fetch failed", it) }
-            .getOrNull()
+
+        // 問い合わせそのものが失敗したのは「無い」ではない。答えが返ってきて、
+        // その答えが「持っていない」だったときだけ諦める。
+        val bytes = asked.getOrElse { return false }
 
         if (bytes == null || ContentHash.of(bytes).value != id.value) {
             android.util.Log.w(
@@ -364,25 +404,44 @@ class MediaRepository(
      *
      * 保管庫は30日で消す（media_common.php）。過ぎれば失敗し、それが正直な結果。
      * 圧縮版は残っていて、画面は「オリジナルは期限切れ」と言う。
+     *
+     * 返すファイルは**書き出すまでの置き場**でしかない。使い終わったら
+     * [discardOriginal] を呼ぶ。ここで消せないのは、書き出しがまだ始まっていないから。
      */
-    suspend fun fetchOriginal(id: MediaId, key: ByteArray): Result<File> = runCatching {
-        val client = store ?: error("写真の保存先が使えません")
-        val sealed = File(directory, id.value + SEALED_SUFFIX)
-        val plain = File(directory, id.value + ORIGINAL_SUFFIX)
+    suspend fun fetchOriginal(id: MediaId, key: ByteArray): Result<File> =
+        // 二度押しで同じ `<id>.sealed` を2本のダウンロードが奪い合わないように、
+        // 取得と同じ錠を通す。
+        fetching.computeIfAbsent(id.value) { Mutex() }.withLock {
+            runCatching {
+                val client = store ?: error("写真の保存先が使えません")
+                val sealed = File(directory, id.value + SEALED_SUFFIX)
+                val plain = File(directory, id.value + ORIGINAL_SUFFIX)
 
-        try {
-            withContext(Dispatchers.IO) { directory.mkdirs() }
-            client.download(id.value, sealed, original = true).getOrThrow()
-            check(hashOf(sealed) == id.value) { "元のファイルが壊れています" }
-            withContext(Dispatchers.IO) {
-                MediaCipher.open(sealed, key).use { opened ->
-                    plain.outputStream().use(opened::copyTo)
+                try {
+                    withContext(Dispatchers.IO) { directory.mkdirs() }
+                    client.download(id.value, sealed, original = true).getOrThrow()
+                    check(hashOf(sealed) == id.value) { "元のファイルが壊れています" }
+                    withContext(Dispatchers.IO) {
+                        MediaCipher.open(sealed, key).use { opened ->
+                            plain.outputStream().use(opened::copyTo)
+                        }
+                    }
+                    plain
+                } finally {
+                    sealed.delete()
                 }
             }
-            plain
-        } finally {
-            sealed.delete()
         }
+
+    /**
+     * [fetchOriginal] が置いた一時ファイルを片付ける。
+     *
+     * 消すのは `<id>.original` だけ。これはギャラリーへ書き出すためにこのアプリが
+     * さっき作った複製で、写真そのものは圧縮版も保管庫のオリジナルも別にある。
+     * 書き出しが終わったかを知っているのは頼んだ側なので、片付ける合図もそちらから。
+     */
+    fun discardOriginal(id: MediaId) {
+        File(directory, id.value + ORIGINAL_SUFFIX).delete()
     }
 
     /**
@@ -460,5 +519,8 @@ class MediaRepository(
 
         /** 取得したオリジナル。ギャラリーに書き出すまでの置き場。 */
         const val ORIGINAL_SUFFIX = ".original"
+
+        /** 復号の途中。名前を付け替えるまでの、まだ写真ではないファイル。 */
+        const val PART_SUFFIX = ".part"
     }
 }

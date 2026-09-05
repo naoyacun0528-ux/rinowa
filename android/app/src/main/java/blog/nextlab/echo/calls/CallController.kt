@@ -12,6 +12,7 @@ import blog.nextlab.echo.core.model.MessageContent
 import blog.nextlab.echo.core.model.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -274,9 +275,24 @@ class CallController(
         }
     }
 
+    /**
+     * カメラを前後で入れ替える。
+     *
+     * 切り替えの結果は、呼んだ直後には出ていない。カメラを閉じて開き直すまでの数百ミリ秒は
+     * まだ前のカメラのままなので、そこで読んだ値を画面に出すと「前／後」の文字も自画面の
+     * 鏡像も切り替わらないまま残る（実際そうなっていた）。届いた値だけを信じる。
+     */
     fun switchCamera() {
-        session?.switchCamera()
-        usingFrontCamera = session?.usingFrontCamera ?: true
+        val current = session ?: return
+        current.switchCamera { result ->
+            // 結果はカメラのスレッドで届く。Compose の状態はメインスレッドのものなので移す。
+            scope.launch(Dispatchers.Main) {
+                result
+                    .onSuccess { usingFrontCamera = it }
+                    // 押したのに何も変わらないのは、故障と見分けがつかない。
+                    .onFailure { failure = "カメラを切り替えられませんでした: ${it.message.orEmpty()}" }
+            }
+        }
     }
 
     fun toggleSpeaker() {
