@@ -271,6 +271,27 @@ class RinowaApplication : Application() {
             ),
         )
     }
+
+    /**
+     * 端末が苦しくなったとき、復号した写真を先に返す。
+     *
+     * 写真は取り直せる。返して困るのは、次に同じ会話を開いたときに読み込み直す
+     * ぶんの時間だけで、会話そのものは何も失わない。**先に譲らないと、譲る側を
+     * OS が選ぶことになり、そのときは選ばれるのがアプリごと**になる。
+     *
+     * 上限（MediaRepository が端末の格から決める）だけでも際限なく増えることは
+     * 無いが、それは「このアプリが持ってよい量」であって「いま持ってよい量」では
+     * ない。背景に回ったアプリが上限まで抱えている理由は無い。
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        services?.media?.trimMemory(level)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        services?.media?.forgetDecoded()
+    }
 }
 
 private fun HapticTier.toAnalyticsId(): HapticTierId = when (this) {

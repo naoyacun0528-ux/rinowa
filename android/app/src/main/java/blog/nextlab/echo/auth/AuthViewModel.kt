@@ -6,6 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import blog.nextlab.echo.core.model.UserId
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class AuthMode { SignIn, SignUp }
 
@@ -52,6 +56,24 @@ sealed interface AuthNotice {
 class AuthViewModel(
     private val repository: AuthRepository,
     private val google: GoogleCredentialClient,
+    /**
+     * この端末を、そのアカウントの端末一覧から外すもの。
+     *
+     * ここが関数1つなのは、認証がリポジトリの袋（RinowaServices）を知らずに済むから。
+     * 知る必要があるのは「出ていく前に呼ぶものがある」ことだけで、それが Firestore
+     * なのかどうかは、この画面の関心ではない。
+     *
+     * 既定を必須の引数にしないのは、Firebase の設定が無いビルドを巻き込まないため。
+     * ただし既定は黙らない。**渡されていないと登録は消えないまま、症状は
+     * 「サインアウトしたのに前のアカウント宛の通知が届く」という遠いところに出る。**
+     * 何も言わずに通る既定は、この穴をもう一度掘る。
+     */
+    private val forgetPushDevice: suspend (UserId) -> Unit = {
+        android.util.Log.w(
+            LOG,
+            "端末の push 登録を消す手立てが渡されていない。この端末は登録されたまま出ていく",
+        )
+    },
 ) : ViewModel() {
 
     val state = repository.state
@@ -153,10 +175,34 @@ class AuthViewModel(
         }
     }
 
+    /**
+     * サインアウトする。Firebase を切る**前に**、この端末の push 登録を消す。
+     *
+     * 順番がこの関数の中身のほとんど。`users/{uid}/devices` は本人しか書けない
+     * （firestore.rules）ので、先に auth を切ると、消しに行った時点で自分の端末を
+     * 消す資格が無い。残ったトークンは server/push.php が端末一覧をなめて拾い、
+     * FCM は生きているトークンに 200 を返すので、掃除もされない。
+     * つまり一度置き去りにすると、アプリを消すまで前のアカウント宛の通知が届き続ける。
+     * deviceId は1インストールに1つなので、端末を人に譲れば届く先はその人になる。
+     *
+     * 呼び出し側は `() -> Unit` として持っている（AccountScreen の `::signOut`）ので
+     * suspend にはできない。コルーチンはここで開く。
+     */
     fun signOut() {
-        repository.signOut()
+        val leaving = currentUserId()
         form = AuthForm()
         notice = null
+        viewModelScope.launch {
+            try {
+                if (leaving != null) forgetThisDevice(leaving)
+            } finally {
+                // 何があってもサインアウトはする。アカウントは端末を出るべきで、
+                // 登録が消せないことを理由に居座らせるほうが害が大きい。
+                // finally なのは、この ViewModel が先に片付いた場合でも
+                // 「押したのにサインアウトしていない」を作らないため。
+                repository.signOut()
+            }
+        }
     }
 
     /** 削除画面で入れ直したパスワード。このオブジェクトの外へは出ない。 */
@@ -179,9 +225,25 @@ class AuthViewModel(
      * この再試行は回避策ではない。Firebase は削除に最近のサインインを要求する。
      * 言われたときだけ2回目を挟むことで、普通の場合は1タップのまま、放置された
      * セッションでは実行しない、という両方が成り立つ。
+     *
+     * サインアウトと同じ理由で、端末を外すのが先。しかもこちらは取り返しがつかない。
+     * Firestore は下のコレクションを連鎖して消さないので、`users/{uid}/devices` は
+     * アカウントが消えたあとも残り、それを消せる人はもうどこにもいない。
+     * server/push.php は会話の memberIds をなめるだけでアカウントの生死を見ないから、
+     * 退会したはずの端末にグループの通知が届き続ける。
      */
     suspend fun deleteAccount(activityContext: Context): Boolean {
-        if (attempt { repository.deleteAccount() }) return true
+        // 外すのを attempt の中に入れてあるのは、その間 busy でいるため。外に出すと
+        // 待っている数秒のあいだボタンが生きていて、削除を2回始められる。
+        //
+        // 削除が失敗して、本人確認をやり直す途中でやめた場合、この端末は登録の無いまま
+        // サインインしたまま残る。通知は次の起動で戻る（ChatListViewModel.bind）。
+        // 数時間通知が来ないのと、退会したのに届き続けるのとでは、後者だけが直せない。
+        val deleted = attempt {
+            currentUserId()?.let { forgetThisDevice(it) }
+            repository.deleteAccount()
+        }
+        if (deleted) return true
         if ((notice as? AuthNotice.Failed)?.failure != AuthFailure.NeedsRecentLogin) return false
 
         val user = (state.value as? AuthState.SignedIn)?.user ?: return false
@@ -200,6 +262,38 @@ class AuthViewModel(
         return attempt { repository.deleteAccount() }
     }
 
+    /**
+     * この端末を [owner] の端末一覧から外す。失敗しても投げない。
+     *
+     * 待つのに上限を置いてあるのは、圏外だと Firestore の削除がいつまでも返らないから
+     * （ローカルには積まれるが、`await` が終わるのはサーバーが受け取ったとき）。
+     * 上限が無いと、サインアウトを押した人が動かない画面の前に取り残される。
+     * それは「消せなかったらサインアウトを止める」を、待ち時間のかたちでやっているのと同じ。
+     */
+    private suspend fun forgetThisDevice(owner: UserId) {
+        val finished = withTimeoutOrNull(FORGET_DEVICE_TIMEOUT_MS) {
+            runCatching { forgetPushDevice(owner) }
+                .onFailure { android.util.Log.w(LOG, "端末の push 登録を消せなかった", it) }
+        }
+        if (finished == null) {
+            // 積まれた削除は、繋がった時点でもう認証が切れていて拒まれる。
+            // つまり圏外でのサインアウトは登録を置いていく。分かっていて進む。
+            android.util.Log.w(LOG, "端末の push 登録の削除が返らなかった。登録は残る")
+        }
+    }
+
+    /**
+     * いまこの端末に居るアカウント。
+     *
+     * 確認待ちも含める。[AuthState.NeedsVerification] は Firebase から見れば
+     * サインイン済みで、その画面にも「別のアカウントを使う」がある。
+     */
+    private fun currentUserId(): UserId? = when (val current = state.value) {
+        is AuthState.SignedIn -> UserId(current.user.uid)
+        is AuthState.NeedsVerification -> UserId(current.user.uid)
+        else -> null
+    }
+
     private suspend fun attempt(block: suspend () -> Result<Unit>): Boolean {
         if (form.busy) return false
         form = form.copy(busy = true)
@@ -216,5 +310,17 @@ class AuthViewModel(
                 false
             },
         )
+    }
+
+    private companion object {
+        const val LOG = "Rinowa/auth"
+
+        /**
+         * 端末を外すのに待つ上限。
+         *
+         * 繋がっていれば1往復で、ふつうはこの何分の1かで終わる。長くしても
+         * 圏外のときに画面が止まる時間が伸びるだけで、消える見込みは増えない。
+         */
+        const val FORGET_DEVICE_TIMEOUT_MS = 3_000L
     }
 }

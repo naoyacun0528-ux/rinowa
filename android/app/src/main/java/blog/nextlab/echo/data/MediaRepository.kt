@@ -1,7 +1,10 @@
 package blog.nextlab.echo.data
 
+import android.app.ActivityManager
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import blog.nextlab.echo.media.MediaCipher
@@ -53,8 +56,30 @@ class MediaRepository(
     // もう一度やる。
     private val directory = File(context.filesDir, DIR)
 
-    /** デコード済みの画像。同じ写真を通り過ぎるたびにデコードし直さないため。 */
-    private val decoded = ConcurrentHashMap<String, ImageBitmap>()
+    /** メモリに置いていい画素の合計。端末で変える（[memoryBudgetFor]）。 */
+    private val budgetBytes = memoryBudgetFor(context)
+
+    /**
+     * デコード済みの画像。同じ写真を通り過ぎるたびにデコードし直さないため。
+     *
+     * 上限はバイト数で測る。**枚数では測れない。** 1枚は小さなサムネイルから
+     * 2048x1536＝約12.6MBまであって、桁が違う。「5枚まで」は、ある会話では
+     * 60MB を許し、別の会話では1MB も持てない。上限として何も言っていない。
+     *
+     * ここに入るのは復号済みの画素そのもので、API 26 以降はネイティブヒープにある。
+     * だから Java ヒープの OutOfMemoryError より先に低メモリキラーが来る。利用者から
+     * 見ると「会話を開いていたら急にホームに戻った」で、理由はどこにも出ない。
+     * 上限が無かった頃に起きていたのはこれ。捨てて失うのはデコードの時間だけで、
+     * 写真そのものはディスクにある。
+     */
+    private val decoded = object : LruCache<String, ImageBitmap>(budgetBytes) {
+        // 幅×高さ×4。[cached] は Options を渡さずにデコードするので画素は ARGB_8888、
+        // 1画素4バイト。桁が合っていればよく、正確である必要は無い。
+        override fun sizeOf(key: String, value: ImageBitmap): Int =
+            (value.width.toLong() * value.height * 4L)
+                .coerceIn(1L, Int.MAX_VALUE.toLong())
+                .toInt()
+    }
 
     /** 無いと分かっている id。毎フレーム取りに行かないため。 */
     private val absent = ConcurrentHashMap<String, Boolean>()
@@ -72,15 +97,52 @@ class MediaRepository(
         val sealedBytes: Long = 0,
     )
 
-    /** すでに端末にある写真。通信は一切しない。 */
+    /**
+     * すでに端末にある写真。通信は一切しない。
+     *
+     * ここは原寸のまま読む。**吹き出しは 240dp しか要らないので間引けそうに見えるが、
+     * 間引けない。** 同じ1枚がそのまま全画面ビューアのピンチ拡大に渡り、さらに
+     * 「保存」「共有」でギャラリーに書き出されるところまで行く（ChatPhotoViewer）。
+     * inSampleSize は半分刻みなので、長辺2048の写真は一段でも1024になり、
+     * 全画面より粗い絵を保存させることになる。用途で分けるなら、吹き出し用と原寸用を
+     * 呼び分けるところまで含めて変える必要がある。
+     */
     fun cached(id: MediaId): ImageBitmap? {
-        decoded[id.value]?.let { return it }
+        // get は「最近使った」を進める。スクロールで戻ってきた写真が、通り過ぎただけの
+        // 写真より先に捨てられないように。
+        decoded.get(id.value)?.let { return it }
         val file = fileFor(id).takeIf(File::exists) ?: return null
         // swallow-ok: 手元の複製がデコードできなければ「無い」として取り直す。
         // 伝えたところで呼び出し側にできることは変わらない。
         val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
             ?: return null
-        return bitmap.asImageBitmap().also { decoded[id.value] = it }
+        return bitmap.asImageBitmap().also { decoded.put(id.value, it) }
+    }
+
+    /**
+     * 詰まってきたので画素を手放す。
+     *
+     * **いまはどこからも呼ばれていない。** Application の onTrimMemory / onLowMemory から
+     * ここへ繋いで初めて効く（[forgetDecoded] も同じ）。繋がなくても上限では抑えるが、
+     * 「他のアプリのために先に譲る」は OS に言われた時にしかできない。
+     *
+     * 段はそのまま OS の言い分に従う。まだ動いている段（RUNNING_*）では減らすだけ。
+     * 画面が隠れたか背景に回ったか本当に危ない段（15以上）では全部返す。**会話を
+     * 閉じただけでは何も起きない**ので、開きっぱなしの端末はここまで来ない。
+     */
+    fun trimMemory(level: Int) {
+        when {
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> decoded.evictAll()
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ->
+                decoded.trimToSize(budgetBytes / 4)
+            else -> decoded.trimToSize(budgetBytes / 2)
+        }
+        android.util.Log.i(TAG, "trim($level) 後に持っている画素: ${decoded.size() / 1024}KB")
+    }
+
+    /** 全部返す。onLowMemory 相当。 */
+    fun forgetDecoded() {
+        decoded.evictAll()
     }
 
     fun isKnownMissing(id: MediaId): Boolean = absent[id.value] == true
@@ -355,6 +417,43 @@ class MediaRepository(
     internal companion object {
         private const val TAG = "Rinowa/media"
         const val DIR = "media"
+
+        /**
+         * 端末に合わせた、メモリに置く画素の上限。
+         *
+         * memoryClass は「この端末がアプリ1つに許す Java ヒープ」の MB。画素そのものは
+         * API 26 以降ネイティブ側にあってこの枠を使わないが、**端末の格を表す数として
+         * これが一番素直で、どの端末でも必ず読める。** isLowRamDevice はメーカーが
+         * 明示的に立てる印なので、立っていれば更に絞る。非力な端末ほど効かないと、
+         * この上限を作った意味が無い。
+         *
+         * 1/4 は「写真が数枚」という当たりの付け方。1枚 12.6MB として、64MB の端末で
+         * 1枚、256MB の端末で5枚。通り過ぎた写真を貯め込まない程度に小さく、少し戻った
+         * ときにデコードし直さない程度には大きい、つもり。**この数字は実機で見ていない。**
+         */
+        private fun memoryBudgetFor(context: Context): Int {
+            val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            val heapMb = manager?.memoryClass ?: 0
+            val runtimeMb = (Runtime.getRuntime().maxMemory() / MB).toInt()
+            // 2つの見方が食い違ったら小さい方。大きい方を信じる理由が無い。
+            val base = listOf(heapMb, runtimeMb).filter { it > 0 }.minOrNull() ?: FALLBACK_HEAP_MB
+            val lowRam = manager?.isLowRamDevice == true
+            val share = if (lowRam) base / 8 else base / 4
+            val floor = if (lowRam) LOW_RAM_FLOOR_MB else FLOOR_MB
+            return share.coerceIn(floor, CEILING_MB) * MB.toInt()
+        }
+
+        private const val MB = 1024L * 1024L
+
+        /** ActivityManager も Runtime も答えなかったとき。中位機のあたり。 */
+        private const val FALLBACK_HEAP_MB = 64
+
+        /** これを下回ると、写真1枚も持てずスクロールのたびにデコードし直しになる。 */
+        private const val FLOOR_MB = 16
+        private const val LOW_RAM_FLOOR_MB = 8
+
+        /** 余裕のある端末でも、写真のために際限なく取らない。 */
+        private const val CEILING_MB = 64
 
         /** 出入りする暗号文。置きっぱなしにはしない。 */
         const val SEALED_SUFFIX = ".sealed"

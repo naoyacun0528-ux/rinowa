@@ -82,7 +82,15 @@ fun CallOverlay(
     // コントローラは全画面より上にいて、どの会話かを知らない。名前が分かるのはここ。
     LaunchedEffect(peerName) { controller.peerLabel = peerName }
 
-    val visible = controller.active != null || incoming != null
+    // 発信の応答待ちもここに含める。通話ができるまで待ってから出していたので、
+    // オフラインだと押しても画面が何も変わらず、押した人はもう一度押していた。
+    // 二重発信の入口はここ。
+    val visible = controller.active != null || controller.placing || incoming != null
+
+    // 応答待ちの間はまだ通話が無い。種別だけは分かっているので、音声とビデオの
+    // どちらの画面を出すかはそれで決める。
+    val kind = controller.active?.kind ?: controller.placingKind
+
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
         Box(
             modifier = Modifier
@@ -91,14 +99,16 @@ fun CallOverlay(
                 .background(if (RinowaTheme.colors.isLight) Color(0xFF101014) else Color(0xFF0A0A0C)),
             contentAlignment = Alignment.Center,
         ) {
-            if (controller.active == null && incoming != null) {
+            // 自分がかけている最中に着信が並ぶことがある。そのときも自分の発信を出す。
+            // 差し替えると、こちらの赤いボタンが着信の画面の下に消える。
+            if (controller.active == null && !controller.placing && incoming != null) {
                 IncomingCall(
                     peerName = peerName,
                     kindLabel = if (incoming.kind == CallKind.Video) "ビデオ通話" else "音声通話",
                     onAccept = onRequestMicrophone,
                     onDecline = { controller.decline(incoming) },
                 )
-            } else if (controller.active?.kind == CallKind.Video) {
+            } else if (kind == CallKind.Video) {
                 VideoCall(controller = controller, peerName = peerName)
             } else {
                 OngoingCall(controller = controller, peerName = peerName)

@@ -43,6 +43,10 @@ import kotlinx.coroutines.tasks.await
  *
  * 応答・拒否・時間切れで止まる。発信側があきらめたあとも鳴っている端末は、鳴らない
  * 端末より悪い（人が走ってくる）。
+ *
+ * 一度に鳴らすのは1件だけ。鳴っている間に別の通話が届いても、先に鳴っているほうを
+ * 続ける（[ringingCallId] と [onStartCommand] を参照）。出せる場所が1つしかない以上、
+ * どちらかは落ちる。落とす側を選べるなら、まだ誰も見ていないほうを落とす。
  */
 class IncomingCallService : Service() {
 
@@ -52,6 +56,18 @@ class IncomingCallService : Service() {
 
     /** 通話が終わったことを見張る購読。[watchUntilAnswered] を参照。 */
     private var callWatch: com.google.firebase.firestore.ListenerRegistration? = null
+
+    /**
+     * いま鳴らしている通話。鳴っていなければ null。
+     *
+     * サービスは鳴っている間ずっと生きているので、その最中に `start()` がもう一度来る。
+     * 同じ通話がもう一度届いたのか（FCM の再配信、発信側の二重 push）、別の人からの
+     * 2件目なのかは、この id でしか見分けが付かない。扱いが正反対なので見分ける。
+     *
+     * 写真を引く側は別スレッドから読むので volatile。
+     */
+    @Volatile
+    private var ringingCallId: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -100,6 +116,12 @@ class IncomingCallService : Service() {
             ) {
                 return@launch
             }
+
+            // 写真を引いている間に、鳴っている通話が入れ替わっていることがある（断った
+            // 直後に次の着信が来ると、前のサービスが片付く前に次が始まる）。同じ通知 id を
+            // 使うので、古いほうを出し直すと名前も応答ボタンの行き先も前の通話に戻る。
+            // **鳴っている人と、応答が繋がる先が食い違う**のが一番悪い。
+            if (ringingCallId != callId) return@launch
 
             runCatching {
                 androidx.core.app.NotificationManagerCompat.from(this@IncomingCallService)
@@ -170,6 +192,10 @@ class IncomingCallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            // stopSelf() は「もう用は無い」と言うだけで、onDestroy がすぐ来るとは限らない。
+            // その隙間に次の着信が届くと停止が取り消され、断ったはずの通話の音と見張りが
+            // そのまま残る。頼まれた時点で鳴りやませる。
+            stopEverything()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -178,6 +204,29 @@ class IncomingCallService : Service() {
         val conversationId = intent?.getStringExtra(IncomingCallNotifier.EXTRA_CONVERSATION_ID).orEmpty()
         val callerName = intent?.getStringExtra(IncomingCallNotifier.EXTRA_CALLER_NAME) ?: "着信"
         val kindLabel = intent?.getStringExtra(IncomingCallNotifier.EXTRA_KIND_LABEL) ?: "着信"
+
+        val ringing = ringingCallId
+        if (!ringing.isNullOrEmpty()) {
+            if (ringing == callId) {
+                // 同じ通話がもう一度届いただけ。すでに鳴っているので何もしない。
+                // ここから鳴らし直すと着信音が頭に戻り（誰も押していないのに切り替わる）、
+                // 時間切れの30秒も数え直しになる。
+                android.util.Log.i("Rinowa/calls", "the same call arrived again; already ringing")
+                return START_NOT_STICKY
+            }
+
+            // 鳴っている最中に、別の人からの2件目。
+            //
+            // 出せる場所はこの端末に1つしかない（通知 id もサービスもこの画面も1つ）。
+            // 黙って差し替えると、**応答ボタンの行き先が、押そうとしている人の指の下で
+            // 別の人に変わる**。掛け直せる2件目より、間違った相手に出てしまう1件目の
+            // ほうが取り返しがつかないので、先に鳴り始めたほうを守る。
+            //
+            // 2件を同時にちゃんと出すには通話中着信の画面が要る。まだ無い。
+            android.util.Log.i("Rinowa/calls", "another call is already ringing; not taking over")
+            return START_NOT_STICKY
+        }
+        ringingCallId = callId
 
         // 着信通知は写真なしで組み立て、すぐ出す。
         //
@@ -225,7 +274,18 @@ class IncomingCallService : Service() {
 
         // 保険。相手の端末が圏外に落ちるなどして「終わった」が書かれないことはある。
         // 上の購読が届けば、ここまで待たずに止まる。
-        stopper.postDelayed({ stopSelf() }, RING_TIMEOUT_MS)
+        //
+        // 積む前に消すのは、前の通話の分がまだ残っていることがあるから（断った直後に
+        // 次が来る道）。残ったまま積むと、25秒前に仕掛けられたほうが先に鳴って、
+        // 始まったばかりの着信を5秒で黙らせる。
+        stopper.removeCallbacksAndMessages(null)
+        stopper.postDelayed(
+            {
+                stopEverything()
+                stopSelf()
+            },
+            RING_TIMEOUT_MS,
+        )
         return START_NOT_STICKY
     }
 
@@ -239,8 +299,11 @@ class IncomingCallService : Service() {
      * 別の端末が応答した場合でも同じ。文書が消えていても止める（通話が片付けられた）。
      */
     private fun watchUntilAnswered(callId: String, conversationId: String) {
-        if (callId.isEmpty() || conversationId.isEmpty()) return
+        // 見張れるかどうかを決める前に、前の購読を捨てる。前の通話のものが生きていると、
+        // あちらが終わった知らせで stopSelf() が呼ばれ、いま鳴っている別の通話が黙る。
         callWatch?.remove()
+        callWatch = null
+        if (callId.isEmpty() || conversationId.isEmpty()) return
         // swallow-ok: 見張れなくても着信そのものは出す。上の時間切れが受け止める。
         callWatch = runCatching {
             com.google.firebase.firestore.FirebaseFirestore.getInstance()
@@ -253,7 +316,13 @@ class IncomingCallService : Service() {
                     val ringing = snapshot != null &&
                         snapshot.exists() &&
                         snapshot.getString(FIELD_STATE) == STATE_RINGING
-                    if (!ringing) stopSelf()
+                    // 止めるのを onDestroy 任せにしない。掛けた人が切ってすぐ掛け直す
+                    // のはよくあることで、その2件目が届く頃にまだ「1件目を鳴らして
+                    // いる」ことになっていると、掛け直したほうが黙って捨てられる。
+                    if (!ringing) {
+                        stopEverything()
+                        stopSelf()
+                    }
                 }
         }
             .onFailure { android.util.Log.w("Rinowa/calls", "could not watch the call", it) }
@@ -267,6 +336,11 @@ class IncomingCallService : Service() {
      * 分かるべきで、人が通話だと知っている音は端末のもの。
      */
     private fun startRinging() {
+        // 鳴らす前に、前のものを必ず止める。呼び出し側が二重に来ないよう見張ってはいるが、
+        // 鳴らす側にも置く。ここを通らずに player を上書きすると、捨てたほうは
+        // isLooping のまま誰の参照にも残らずに鳴り続け、止める手は強制終了しかない。
+        stopSound()
+
         val audio = getSystemService(AUDIO_SERVICE) as? AudioManager
 
         // マナーモードや消音は事故ではなく判断。その上から鳴らすアプリは会議中に消される。
@@ -323,15 +397,38 @@ class IncomingCallService : Service() {
             getSystemService(VIBRATOR_SERVICE) as? Vibrator
         }
 
-    override fun onDestroy() {
+    /**
+     * 音と振動を止める。何度呼んでもよい。
+     *
+     * 先に持ち手を手放してから止めにかかる。stop() が投げたときに、解放済みのものを
+     * 指したままの player が残らないように（次に来たものがそれを止めようとする）。
+     *
+     * 振動子はシステムのものを借りているだけなので解放は要らない。ただし止めるのは要る。
+     * 同じ端末で vibrate() を呼び直せば前の波形は置き換わるが、着信音だけ鳴らす設定に
+     * 変わっていると次の vibrate() が来ないので、前の振動が残る。
+     */
+    private fun stopSound() {
+        val ringing = player
+        player = null
+        bestEffort("stop ringtone") { ringing?.stop() }
+        bestEffort("release ringtone") { ringing?.release() }
+
+        val buzzing = vibrator
+        vibrator = null
+        bestEffort("stop vibration") { buzzing?.cancel() }
+    }
+
+    /** 鳴らすのをやめ、鳴らし続けるための仕掛けも全部畳む。 */
+    private fun stopEverything() {
         callWatch?.remove()
         callWatch = null
         stopper.removeCallbacksAndMessages(null)
-        bestEffort("stop ringtone") { player?.stop() }
-        bestEffort("release ringtone") { player?.release() }
-        player = null
-        bestEffort("stop vibration") { vibrator?.cancel() }
-        vibrator = null
+        stopSound()
+        ringingCallId = null
+    }
+
+    override fun onDestroy() {
+        stopEverything()
         IncomingCallNotifier.dismiss(this)
         super.onDestroy()
     }

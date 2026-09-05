@@ -34,8 +34,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import blog.nextlab.echo.auth.AuthState
 import blog.nextlab.echo.auth.AuthViewModel
 import blog.nextlab.echo.auth.RinowaUser
-import blog.nextlab.echo.backup.BackupRepository
-import blog.nextlab.echo.backup.DriveAuthorization
 import blog.nextlab.echo.calls.CallController
 import blog.nextlab.echo.calls.CallKind
 import blog.nextlab.echo.core.analytics.Analytics
@@ -53,8 +51,7 @@ import blog.nextlab.echo.ui.auth.AccountScreen
 import blog.nextlab.echo.ui.auth.DeleteAccountScreen
 import blog.nextlab.echo.ui.auth.SignInScreen
 import blog.nextlab.echo.ui.auth.VerifyEmailScreen
-import blog.nextlab.echo.ui.backup.BackupScreen
-import blog.nextlab.echo.ui.backup.BackupUiState
+import blog.nextlab.echo.ui.backup.BackupRoute
 import blog.nextlab.echo.ui.chat.ChatScreen
 import blog.nextlab.echo.ui.chat.ChatViewModel
 import blog.nextlab.echo.ui.chatlist.ChatListScreen
@@ -72,68 +69,6 @@ import blog.nextlab.echo.ui.security.SafetyScreen
 import blog.nextlab.echo.ui.profile.ProfileViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-
-private sealed interface Screen {
-    data object ChatList : Screen
-    data class Chat(val conversation: Conversation) : Screen
-    data object NewConversation : Screen
-    data object NewGroup : Screen
-    data object HapticLab : Screen
-    data object Account : Screen
-    data object DeleteAccount : Screen
-    data object Profile : Screen
-    data object Feedback : Screen
-    data object Privacy : Screen
-    data object Backup : Screen
-
-    /**
-     * 指紋の読み合わせ。会話ごとに開く。
-     *
-     * 相手を `Conversation` ごと持つのは、名前と相手の id の両方が要るため。
-     * id だけだと画面に出す名前が無く、名前だけだと鍵が引けない。
-     */
-    data class Safety(val conversation: Conversation) : Screen
-
-    /** Direct-1 の開発用画面。製品の画面ではない（DirectLabScreen を参照）。 */
-    data object DirectLab : Screen
-}
-
-/** 各画面から戻る先。1箇所にまとめて、画面ごとに勝手な答えを作らせない。 */
-private fun Screen.parent(): Screen = when (this) {
-    Screen.ChatList -> Screen.ChatList
-    Screen.DeleteAccount -> Screen.Account
-    Screen.Privacy -> Screen.Account
-    Screen.Backup -> Screen.Account
-    Screen.Feedback -> Screen.Account
-    is Screen.Safety -> Screen.Chat(this.conversation)
-    Screen.DirectLab -> Screen.Account
-    Screen.Profile -> Screen.Account
-    // どちらも一覧の＋から入るので、戻り先も一覧。
-    else -> Screen.ChatList
-}
-
-/**
- * 一覧から何階層めか。左右どちらへ動かすかを決めるのに使う。
- *
- * 以前は「行き先が一覧でなければ進む」と見ていた。設定の子画面から設定へ戻るときも
- * 行き先は一覧ではないので、**戻っているのに進む向きの動き**になっていた。左から
- * 出てくるはずの画面が右から入ってくる。
- *
- * 深さは [parent] から数える。親子関係を2か所に書くと、片方だけ直した日に、向きだけが
- * 静かに狂う。
- */
-private fun Screen.depth(): Int {
-    var here: Screen = this
-    var steps = 0
-    while (here != Screen.ChatList && steps < MAX_DEPTH) {
-        here = here.parent()
-        steps++
-    }
-    return steps
-}
-
-/** 階層の想定上限。parent が輪を作っても止まるようにするためのもので、意味は無い。 */
-private const val MAX_DEPTH = 8
 
 @Composable
 fun RinowaApp(
@@ -320,7 +255,15 @@ private fun AuthGate(
 ) {
     val viewModel: AuthViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { AuthViewModel(services.auth, services.googleCredentials) }
+            initializer {
+                AuthViewModel(
+                    services.auth,
+                    services.googleCredentials,
+                    // 出ていく前に、この端末を相手の端末一覧から外す。ここで渡さないと
+                    // 登録が残り、サインアウト済みの端末に前のアカウント宛の通知が届く。
+                    { services.unregisterPushToken(it) },
+                )
+            }
         },
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -620,152 +563,3 @@ private fun ChatDestination(
     )
 }
 
-/**
- * バックアップ画面と、2つのボタンの裏側。
- *
- * 同意画面をここから出すのは、`drive.appdata` の許可を求めるのにダイアログが要り、
- * ダイアログには activity が要るから。下のリポジトリは activity を知らない
- * （トークンを求め、無ければ失敗する）ようにしてある。画面を出せる唯一の場所が
- * 答えも受け取る。
- *
- * 断られたら裏で再試行しない。許可のダイアログを断った人は意思表示をしていて、
- * 見ていない隙にもう一度聞くのはその扱い方ではない。
- */
-@Composable
-private fun BackupRoute(
-    backup: BackupRepository?,
-    me: UserId?,
-    onBack: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var state by remember { mutableStateOf(BackupUiState(busy = true)) }
-
-    val consent = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
-        state = if (result.resultCode == android.app.Activity.RESULT_OK) {
-            // **繋がった。もう一度押させない。** 許可は取れているので、
-            // 次に進める形で戻す。
-            BackupUiState(connected = true, hasBackup = state.hasBackup)
-        } else {
-            BackupUiState(
-                hasBackup = state.hasBackup,
-                message = "許可されなかったので、バックアップはできません。",
-                failed = true,
-            )
-        }
-    }
-
-    /** 許可を確かめ、要るなら同意画面を出す。**画面を出すのは押されたときだけ。** */
-    suspend fun connect(interactive: Boolean) {
-        val authorization = DriveAuthorization(context)
-        when (val outcome = authorization.authorize()) {
-            is DriveAuthorization.Outcome.Granted ->
-                state = BackupUiState(connected = true, hasBackup = state.hasBackup)
-
-            is DriveAuthorization.Outcome.NeedsConsent ->
-                if (interactive) {
-                    consent.launch(
-                        androidx.activity.result.IntentSenderRequest
-                            .Builder(outcome.intent.intentSender)
-                            .build(),
-                    )
-                } else {
-                    // 開いただけの人にダイアログは出さない。押されるまで待つ。
-                    state = BackupUiState(hasBackup = state.hasBackup)
-                }
-
-            is DriveAuthorization.Outcome.Failed ->
-                state = BackupUiState(
-                    hasBackup = state.hasBackup,
-                    message = if (interactive) outcome.message else null,
-                    failed = interactive,
-                )
-        }
-    }
-
-    // 開いた時点で、置き場所と控えの有無を静かに1回だけ確かめる。
-    // 何も預けていないアカウントに「復元」と出しても、何も差し出していない。
-    LaunchedEffect(backup) {
-        val existing = backup?.available()?.getOrNull().orEmpty()
-        state = BackupUiState(busy = true, hasBackup = existing.isNotEmpty())
-        connect(interactive = false)
-    }
-
-    /** 失敗を、同意の要求か、人が読める1文かに変える。 */
-    suspend fun handle(failure: Throwable) {
-        val authorization = DriveAuthorization(context)
-        when (val outcome = authorization.authorize()) {
-            is DriveAuthorization.Outcome.NeedsConsent -> {
-                consent.launch(
-                    androidx.activity.result.IntentSenderRequest
-                        .Builder(outcome.intent.intentSender)
-                        .build(),
-                )
-                state = BackupUiState(hasBackup = state.hasBackup)
-            }
-
-            else -> {
-                state = BackupUiState(
-                    connected = state.connected,
-                    hasBackup = state.hasBackup,
-                    message = failure.message ?: "うまくいきませんでした",
-                    failed = true,
-                )
-            }
-        }
-    }
-
-    BackupScreen(
-        state = state,
-        onConnectDrive = {
-            state = BackupUiState(hasBackup = state.hasBackup, busy = true)
-            scope.launch { connect(interactive = true) }
-        },
-        onBackUp = { secret ->
-            val owner = me ?: return@BackupScreen
-            val repository = backup ?: return@BackupScreen
-            state = BackupUiState(connected = true, hasBackup = state.hasBackup, busy = true)
-            scope.launch {
-                repository.backUp(owner, secret.toCharArray()).fold(
-                    onSuccess = { summary ->
-                        state = BackupUiState(
-                            connected = true,
-                            hasBackup = true,
-                            message = "" + summary.messages + "件を保存しました（" +
-                                (summary.bytes / 1024) + " KB）。",
-                        )
-                    },
-                    onFailure = { handle(it) },
-                )
-            }
-        },
-        onRestore = { secret ->
-            val repository = backup ?: return@BackupScreen
-            state = BackupUiState(connected = true, hasBackup = true, busy = true)
-            scope.launch {
-                val newest = repository.available().getOrNull()?.firstOrNull()
-                if (newest == null) {
-                    state = BackupUiState(
-                        connected = true,
-                        message = "ドライブにバックアップがありません。",
-                        failed = true,
-                    )
-                    return@launch
-                }
-                repository.restore(newest, secret.toCharArray()).fold(
-                    onSuccess = { count ->
-                        state = BackupUiState(
-                            connected = true,
-                            hasBackup = true,
-                            message = "" + count + "件を復元しました。開けなかったメッセージが読めるようになります。",
-                        )
-                    },
-                    onFailure = { handle(it) },
-                )
-            }
-        },
-        onBack = onBack,
-    )
-}

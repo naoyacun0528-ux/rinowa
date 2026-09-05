@@ -11,7 +11,9 @@ import blog.nextlab.echo.core.model.ConversationId
 import blog.nextlab.echo.core.model.MessageContent
 import blog.nextlab.echo.core.model.UserId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 /**
@@ -54,6 +56,21 @@ class CallController(
         private set
 
     var active by mutableStateOf<CallRecord?>(null)
+        private set
+
+    /**
+     * 発信のボタンを押してから、通話が server に出来上がるまで。
+     *
+     * [active] に値が入るのは [CallSignaling.place] の書き込みが server に届いてから。
+     * オフラインだとその書き込みは回線が戻るまで返らないので、その間このコントローラは
+     * 何も持っていない。押した人の画面は何も変わらず、二重発信のガードも素通りする。
+     * だから押した瞬間に立つ印が別に要る。画面もガードも、まずこれを見る。
+     */
+    var placing by mutableStateOf(false)
+        private set
+
+    /** 発信中の通話の種別。[active] が入るまで、画面はこれで音声かビデオかを決める。 */
+    var placingKind by mutableStateOf<CallKind?>(null)
         private set
 
     var muted by mutableStateOf(false)
@@ -110,6 +127,20 @@ class CallController(
 
     private var ringTimeout: Job? = null
     private var peerGoneGrace: Job? = null
+
+    /** 発信の続き（マイクを開き offer を作る所）。取り消しはこれを止める。 */
+    private var placeJob: Job? = null
+
+    /**
+     * 進行中の place の書き込み。発信の続きとは別の Job にしてある。
+     *
+     * 取り消されたら続きは止めたいが、書き込みそのものは止められない。オフラインの間に
+     * 積まれた書き込みは回線が戻れば成立するので、忘れてしまうと、こちらが誰も乗って
+     * いない通話で相手の端末だけが鳴る。結果だけは最後まで見届ける。
+     */
+    private var placement: Deferred<Result<CallId>>? = null
+    private var placingConversation: ConversationId? = null
+
     private var session: WebRtcSession? = null
     private var watchers = mutableListOf<Job>()
     private var peer: UserId? = null
@@ -120,55 +151,71 @@ class CallController(
     // -----------------------------------------------------------------------------------
 
     fun place(conversationId: ConversationId, peerId: UserId, kind: CallKind = CallKind.Audio) {
-        if (active != null) return
+        if (active != null || placing) return
         peer = peerId
         failure = null
+        // launch の中ではなくここで立てる。中で立てると、印が立つのは server の応答が
+        // 返ってからで、それまでの間はガードが無いのと同じ（それが二重発信の正体）。
+        placing = true
+        placingKind = kind
         state = CallState.Ringing
-        scope.launch {
-            val callId = signaling.place(conversationId, me, kind).getOrElse {
-                fail("発信できませんでした: ${it.message.orEmpty()}")
-                return@launch
-            }
-            active = CallRecord(
-                id = callId,
-                conversationId = conversationId,
-                callerId = me,
-                kind = kind,
-                state = CallState.Ringing,
-                startedAtMs = System.currentTimeMillis(),
-            )
-            // 接続を組む前に鳴らす。候補を集めている間に相手が鳴っていてほしい。
-            push?.invoke(conversationId, callId, kind)
 
-            if (!openSession()) return@launch
+        val writing = scope.async { signaling.place(conversationId, me, kind) }
+        placement = writing
+        placingConversation = conversationId
 
-            val offer = runCatching { session!!.createOffer() }.getOrElse {
-                fail("接続の準備に失敗: ${it.message.orEmpty()}")
-                return@launch
-            }
-            val sealedOffer = sealFor(conversationId, peerId, offer) ?: run {
-                fail("通話を暗号化できませんでした")
-                return@launch
-            }
-            signaling.putDescription(conversationId, callId, me, "offer", sealedOffer)
-            watch(conversationId, callId, peerId)
-
-            // 呼び出しには上限を置く。相手の端末も同じ時間で止まるので、その先は
-            // 誰も鳴らしていない音を聞くことになる（上限が無くて「ずっと呼び出し中」になった）。
-            ringTimeout = scope.launch {
-                kotlinx.coroutines.delay(RING_TIMEOUT_MS)
-                if (state == CallState.Ringing) {
-                    failure = "応答がありませんでした"
-                    signaling.setState(conversationId, callId, CallState.Ended, CallEndReason.Missed)
-                    pendingOutcome = CallOutcome.Missed
-                    teardown()
+        placeJob = scope.launch {
+            try {
+                val callId = writing.await().getOrElse {
+                    fail("発信できませんでした: ${it.message.orEmpty()}")
+                    return@launch
                 }
+                active = CallRecord(
+                    id = callId,
+                    conversationId = conversationId,
+                    callerId = me,
+                    kind = kind,
+                    state = CallState.Ringing,
+                    startedAtMs = System.currentTimeMillis(),
+                )
+                // 接続を組む前に鳴らす。候補を集めている間に相手が鳴っていてほしい。
+                push?.invoke(conversationId, callId, kind)
+
+                if (!openSession()) return@launch
+
+                val offer = runCatching { session!!.createOffer() }.getOrElse {
+                    fail("接続の準備に失敗: ${it.message.orEmpty()}")
+                    return@launch
+                }
+                val sealedOffer = sealFor(conversationId, peerId, offer) ?: run {
+                    fail("通話を暗号化できませんでした")
+                    return@launch
+                }
+                signaling.putDescription(conversationId, callId, me, "offer", sealedOffer)
+                watch(conversationId, callId, peerId)
+
+                // 呼び出しには上限を置く。相手の端末も同じ時間で止まるので、その先は
+                // 誰も鳴らしていない音を聞くことになる（上限が無くて「ずっと呼び出し中」になった）。
+                ringTimeout = scope.launch {
+                    kotlinx.coroutines.delay(RING_TIMEOUT_MS)
+                    if (state == CallState.Ringing) {
+                        failure = "応答がありませんでした"
+                        signaling.setState(conversationId, callId, CallState.Ended, CallEndReason.Missed)
+                        pendingOutcome = CallOutcome.Missed
+                        teardown()
+                    }
+                }
+            } finally {
+                // 立てた印は必ず降ろす。繋がっても、失敗しても、途中で取り消されても。
+                clearPlacing(writing)
             }
         }
     }
 
     fun accept(record: CallRecord) {
-        if (active != null) return
+        // 発信の応答待ちの最中でも通らせない。通すと openSession が2回走り、
+        // 1本目が close() されずに残る＝マイクが開いたままになる。
+        if (active != null || placing) return
         peer = record.callerId
         failure = null
         active = record
@@ -187,7 +234,17 @@ class CallController(
     }
 
     fun hangUp(reason: CallEndReason = CallEndReason.Hangup) {
-        val record = active ?: return
+        // 応答待ちの間に押された。ここを先に止めないと、赤いボタンを押したあとで
+        // 通話が組み上がる（この区間の hangUp は今まで本当に何もしていなかった）。
+        if (placing) cancelPlacing(reason)
+
+        val record = active
+        if (record == null) {
+            // 通話が出来上がる前に取り消した。server に伝える分は cancelPlacing が
+            // 引き受けたので、ここは画面と音声を戻すだけ。何も起きていなければ触らない。
+            if (state != null) teardown()
+            return
+        }
         // 誰も出ないうちに切ったものは「通話した」ではない。
         pendingOutcome = if (connectedAtMs != null) CallOutcome.Completed else CallOutcome.Missed
         scope.launch {
@@ -228,6 +285,49 @@ class CallController(
     }
 
     // -----------------------------------------------------------------------------------
+
+    /**
+     * 応答待ちの発信を取り消す。
+     *
+     * 続き（マイクを開き offer を作る所）は止められる。止めた先の後始末は [hangUp] が
+     * teardown でやる。止められないのは place の書き込みそのもので、オフラインの間に
+     * 積まれたものは回線が戻れば成立してしまう。だから通話が出来上がったかどうかだけは
+     * 見届けて、出来ていたら終わらせる。放っておくと、取り消したはずの発信で
+     * 相手の端末だけが鳴る。
+     */
+    private fun cancelPlacing(reason: CallEndReason) {
+        val pending = placement
+        val conversationId = placingConversation
+        // すでに通話がある＝終わらせるのは呼び出し元の仕事。ここで二重に書かない。
+        val hasCall = active != null
+        clearPlacing(pending)
+        placeJob?.cancel()
+        placeJob = null
+
+        if (hasCall || pending == null || conversationId == null) return
+        scope.launch {
+            // 書き込みが失敗していたなら終わらせる通話も無い。取り消した人に
+            // 「発信できませんでした」と言っても、もう取り消したあと。
+            val callId = pending.await().getOrNull() ?: return@launch
+            signaling.setState(conversationId, callId, CallState.Ended, reason)
+            signaling.clearSignals(conversationId, callId, me)
+        }
+    }
+
+    /**
+     * 発信中の印を降ろす。
+     *
+     * [expected] が今の発信でなければ何もしない。取り消された発信の後始末は、押した人が
+     * すでに次を発信したあとに走ることがあり、そのとき降ろすと今度は新しい発信が
+     * 見えなくなる。
+     */
+    private fun clearPlacing(expected: Deferred<Result<CallId>>?) {
+        if (expected != null && placement !== expected) return
+        placing = false
+        placingKind = null
+        placement = null
+        placingConversation = null
+    }
 
     private suspend fun openSession(): Boolean {
         // 埋め込まず取りに行く。TURN の資格情報は期限切れになるし、提供元も変わる。
@@ -513,6 +613,10 @@ class CallController(
         ringTimeout = null
         peerGoneGrace?.cancel()
         peerGoneGrace = null
+        // 発信の続きも止める。終わった通話の offer が後から出来上がると、
+        // 誰も見ていないセッションが1本残ることになる。
+        placeJob?.cancel()
+        placeJob = null
         watchers.forEach { it.cancel() }
         watchers.clear()
         session?.close()
